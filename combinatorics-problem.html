@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Outfit Dilemma - Feureau's Math Lab</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 750px;
+            background: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            text-decoration: none;
+            color: #2980b9;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        h1 { color: #2c3e50; margin-top: 0; }
+
+        .problem-box {
+            background: #f8f9fa;
+            border-left: 5px solid #3498db;
+            padding: 20px;
+            margin: 25px 0;
+            font-size: 1.15rem;
+            line-height: 1.6;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s, transform 0.1s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-reveal { background: #9b59b6; color: white; flex-grow: 1; }
+        .btn-reveal:hover { background: #8e44ad; }
+        .btn-widget { background: #e67e22; color: white; flex-grow: 1; }
+        .btn-widget:hover { background: #d35400; }
+
+        /* --- DETAILED EXPLANATION STYLES --- */
+        .explanation-box {
+            display: none;
+            background: #fdfefe;
+            border: 2px solid #1abc9c;
+            padding: 25px;
+            margin-top: 10px;
+            font-size: 1.05rem;
+            line-height: 1.7;
+            border-radius: 12px;
+            animation: fadeIn 0.4s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .explanation-box h3 { margin-top: 0; color: #16a085; border-bottom: 2px dashed #bdc3c7; padding-bottom: 10px; }
+        .explanation-box h4 { color: #2c3e50; margin-bottom: 10px; margin-top: 25px; }
+
+        .math-highlight {
+            font-family: "Courier New", Courier, monospace;
+            font-weight: bold;
+            color: #c0392b;
+            font-size: 1.15rem;
+            background: #fdf2e9;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 5px 0;
+        }
+
+        .step-box {
+            background: #f4f6f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #bdc3c7;
+        }
+        .step-box strong { color: #2980b9; }
+
+        .rule-box {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            color: #856404;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+
+        <h1>👕👖👟 The Outfit Dilemma</h1>
+        <p>A classic combinatorics problem to test your counting skills.</p>
+
+        <div class="problem-box">
+            <strong>Problem:</strong><br>
+            Someone has 4 shirts, 3 pairs of pants, and 2 pairs of shoes. How many different ways are there to wear a set of a shirt, pants, and shoes?
+        </div>
+
+        <div class="action-buttons">
+            <button id="reveal-btn" class="btn btn-reveal">Show Explanation 💡</button>
+            <a href="combinatorics.html" class="btn btn-widget">Try the Widget 🧪</a>
+        </div>
+
+        <!-- DETAILED EXPLANATION SECTION -->
+        <div id="explanation-content" class="explanation-box">
+            <h3>The Detailed Solution</h3>
+
+            <p>To solve this, we need to understand the difference between building a <strong>set</strong> and just picking an item. </p>
+
+            <h4>1. The "AND" vs. "OR" Concept</h4>
+            <p>When you get dressed, you must wear a shirt <strong>AND</strong> pants <strong>AND</strong> shoes. You are <em>combining</em> items from different categories. </p>
+            <p>If the problem asked, "You can buy a shirt <strong>OR</strong> pants," you would just <strong>add</strong> them (4 + 3 = 7). But because you need a complete outfit, the choices don't just add up—they multiply.</p>
+
+            <h4>2. Why Multiplication? (The "Repeated Addition" Logic)</h4>
+            <p>Let's ignore the shoes for a moment and just look at the 4 shirts and 3 pants.</p>
+            <div class="step-box">
+                <strong>Step 1: Mixing Shirts and Pants</strong><br>
+                Imagine you pick <strong>Shirt 1</strong>. You can pair it with Pants 1, Pants 2, or Pants 3. That's <strong>3 outfits</strong>.<br>
+                If you pick <strong>Shirt 2</strong>, you get another 3 outfits.<br>
+                If you pick <strong>Shirt 3</strong>, you get another 3 outfits.<br>
+                If you pick <strong>Shirt 4</strong>, you get another 3 outfits.<br><br>
+                If we add them up, we have: 3 + 3 + 3 + 3 = 12.<br>
+                Multiplication is just a fast way to do repeated addition. So instead of writing 3 four times, we write:<br>
+                <span class="math-highlight">4 shirts × 3 pants = 12 combinations</span>
+            </div>
+
+            <h4>3. Adding the Shoes</h4>
+            <div class="step-box">
+                <strong>Step 2: Adding the 2 pairs of shoes</strong><br>
+                Right now, we have 12 different shirt-and-pants combinations.<br>
+                For <em>every single one</em> of those 12 combinations, you now have 2 choices of shoes: White Sneakers or Black Boots.<br><br>
+                So, we have 12 combinations with White Shoes, and 12 combinations with Black Shoes.<br>
+                Again, repeated addition: 12 + 12 = 24.<br>
+                As a multiplication shortcut:<br>
+                <span class="math-highlight">12 combinations × 2 shoes = 24 total outfits</span>
+            </div>
+
+            <h4>4. The Final Answer</h4>
+            <p>By combining the steps, the total number of unique outfits is:</p>
+            <p style="text-align: center; font-size: 1.3rem;">
+                <span class="math-highlight">4 × 3 × 2 = 24</span>
+            </p>
+
+            <div class="rule-box">
+                <h4>💡 The Golden Rule of Counting</h4>
+                <p>AND ➔ Multiply (×)<br>OR ➔ Add (+)</p>
+                <p style="font-size: 0.9rem; margin-bottom: 0;">If you just added 4 + 3 + 2 = 9, you would only be counting the individual items in the closet (9 pieces of clothing). We want to count the <strong>combinations</strong> of outfits!</p>
+            </div>
+
+            <p style="margin-top: 25px; font-style: italic; color: #7f8c8d; text-align: center;">Want to see this in action? Click the "Try the Widget 🧪" button above to build these 24 outfits yourself!</p>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT FOR THE TOGGLE BUTTON -->
+    <script>
+        (function() {
+            const revealBtn = document.getElementById('reveal-btn');
+            const explanation = document.getElementById('explanation-content');
+
+            revealBtn.addEventListener('click', () => {
+                if (explanation.style.display === 'block') {
+                    explanation.style.display = 'none';
+                    revealBtn.innerText = 'Show Explanation 💡';
+                } else {
+                    explanation.style.display = 'block';
+                    revealBtn.innerText = 'Hide Explanation 🙈';
+
+                    // Smooth scroll to the explanation on mobile/small screens
+                    setTimeout(() => {
+                        explanation.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                }
+            });
+        })();
+    </script>
+
+</body>
+</html>
