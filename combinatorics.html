@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combinatorics Explorer - Feureau's Math Lab</title>
+    <style>
+        body {
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            text-decoration: none;
+            color: #2980b9;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* --- WIDGET CSS --- */
+        #combo-widget {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 15px;
+            max-width: 1000px;
+            box-sizing: border-box;
+            color: #333;
+            margin: 0 auto;
+            position: relative;
+            perspective: 2000px;
+            width: 100%;
+        }
+        #widget-title { text-align: center; margin-top: 0; font-size: 1.3rem; color: #2c3e50; }
+        .toggle-controls { display: flex; justify-content: center; gap: 15px; background: #e9ecef; padding: 10px; border-radius: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+        .toggle-controls label { font-size: 0.9rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 5px; user-select: none; }
+        .toggle-controls input { cursor: pointer; width: 16px; height: 16px; }
+        .builder-area { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-bottom: 20px; }
+        .category-box { flex: 1 1 45%; min-width: 140px; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center; }
+        .category-box h3 { margin: 0 0 15px 0; font-size: 1rem; color: #555; text-transform: uppercase; }
+        .item-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .item-card { cursor: pointer; padding: 12px 8px; border: 2px solid transparent; border-radius: 12px; background: #f8f9fa; transition: all 0.2s; user-select: none; -webkit-tap-highlight-color: transparent; display: flex; flex-direction: column; align-items: center; width: 70px; }
+        .item-card svg { width: 45px; height: 45px; margin-bottom: 8px; }
+        .item-card .label { font-size: 0.85rem; font-weight: bold; color: #333; }
+        .item-card.selected { border-color: #2c3e50; background: #e2e6ea; transform: scale(1.08); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .action-area { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .action-btn { padding: 12px 20px; font-size: 1rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s; -webkit-tap-highlight-color: transparent; }
+        .action-btn:active { transform: scale(0.98); }
+        #combine-btn { background-color: #3498db; color: white; flex-grow: 1; max-width: 220px; }
+        #combine-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .fill-btn { background-color: #9b59b6; color: white; flex-grow: 1; max-width: 170px; }
+        .fill-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .btn-3d { background-color: #e67e22; color: white; flex-grow: 1; max-width: 150px; }
+        .reset-btn { background-color: #e74c3c; color: white; flex-grow: 1; max-width: 220px; }
+        .preview-area { text-align: center; font-weight: bold; padding: 12px; background: #e8f4fd; border-radius: 8px; margin-bottom: 20px; min-height: 25px; color: #2980b9; font-size: 1rem; }
+        #results-area { display: flex; flex-direction: column; gap: 20px; transition: all 0.6s ease; transform-style: preserve-3d; }
+        .layer-container { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px dashed #e0e0e0; transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1); }
+        .layer-container:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .layer-title { text-align: center; font-size: 1.1rem; font-weight: bold; color: #8e44ad; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .layer-title svg { width: 32px; height: 32px; }
+        .area-model-wrapper { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr; gap: 8px; margin: 0 auto; width: 100%; max-width: 950px; box-sizing: border-box; }
+        .axis-label-x { display: grid; gap: 8px; font-weight: bold; color: #555; font-size: 0.85rem; text-align: center; background: #f1f2f6; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; align-items: center; justify-content: center; }
+        .axis-label-y { display: grid; gap: 8px; font-weight: bold; color: #555; font-size: 0.85rem; text-align: center; background: #f1f2f6; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; align-items: center; justify-content: center; }
+        .axis-label-y span { display: flex; align-items: center; justify-content: center; }
+        .area-grid { display: grid; gap: 8px; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; width: 100%; }
+        .combo-slot { background: #f8f9fa; border: 2px dashed #ccc; border-radius: 10px; padding: 15px 10px; display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; color: #aaa; font-size: 0.8rem; min-height: 110px; transition: all 0.3s; width: 100%; }
+        .combo-slot.targeting { border-color: #3498db; background: #e8f4fd; transform: scale(1.05); }
+        .combo-slot.filled { border: 2px solid #ccc; background: #fff; color: #333; font-weight: bold; box-shadow: 0 3px 5px rgba(0,0,0,0.05); }
+        .slot-item-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .combo-slot svg { width: 50px; height: 50px; margin-bottom: 4px; }
+        .combo-slot .text-row { font-size: 0.8rem; line-height: 1.2; text-align: center; }
+        #results-area.is-3d { display: block; position: relative; min-height: 700px; transform-style: preserve-3d; transform: rotateX(-20deg) rotateY(-30deg); }
+        #results-area.is-3d .layer-container { position: absolute; top: 50%; left: 50%; width: 90%; max-width: 800px; transform: translate(-50%, -50%) translateZ(var(--z-offset)); border-bottom: none; padding-bottom: 0; margin-bottom: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border-radius: 12px; background: rgba(255,255,255,0.85); padding: 15px; border: 3px solid #e67e22; box-sizing: border-box; }
+        #results-area.is-3d .area-model-wrapper { transform: none; }
+        .math-summary { text-align: center; margin-top: 15px; font-size: 1.2rem; font-weight: bold; color: #c0392b; }
+        .flying-clone { position: fixed; pointer-events: none; z-index: 9999; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border-radius: 8px; background: #fff; }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="back-link">← Back to Home</a>
+
+    <div id="combo-widget">
+        <h2 id="widget-title">👕👖👟 Build-a-Combo!</h2>
+        <div id="toggle-controls" class="toggle-controls">
+            <label><input type="checkbox" id="toggle-shirts" checked> Shirts (4)</label>
+            <label><input type="checkbox" id="toggle-pants" checked> Pants (3)</label>
+            <label><input type="checkbox" id="toggle-shoes"> Shoes (2)</label>
+        </div>
+        <p style="text-align: center; font-size: 0.9rem; color: #555;">Click one item from each active group, then click "Combine".</p>
+        <div class="builder-area" id="builder-area"></div>
+        <div class="action-area">
+            <button id="combine-btn" class="action-btn" disabled>Combine & Add!</button>
+            <button id="fill-all-btn" class="action-btn fill-btn">Fill All ⚡</button>
+            <button id="btn-3d" class="action-btn btn-3d" style="display: none;">3D View 📦</button>
+            <button id="reset-btn" class="action-btn reset-btn">Start Over 🔄</button>
+        </div>
+        <div id="preview-area" class="preview-area"><em>Select items from each group to build a combo...</em></div>
+        <div class="results-area" id="results-area"></div>
+        <div id="math-summary" class="math-summary"></div>
+    </div>
+
+    <script>
+        (function() {
+            const svgPaths = {
+                shirt: '<path d="M16,3l-4,2L8,3L4,6v4l2,1v11h12V11l2-1V6L16,3z"/>',
+                pants: '<path d="M7,4h10v16h-3v-9l-1-1l-1,1v9H7V4z"/>',
+                shoes: '<path d="M3,17h18v2H3v-2z M5,13h14a2,2 0 0,1 2,2v2H3v-2a2,2 0 0,1 2-2z M7,9a2,2 0 0,1 2-2h4a2,2 0 0,1 2,2v4H7V9z"/>'
+            };
+            const allItems = {
+                shirts: [{ id: 's1', colorName: 'Red', hex: '#e74c3c', type: 'shirt' }, { id: 's2', colorName: 'Blue', hex: '#3498db', type: 'shirt' }, { id: 's3', colorName: 'Green', hex: '#2ecc71', type: 'shirt' }, { id: 's4', colorName: 'Yellow', hex: '#f1c40f', type: 'shirt' }],
+                pants: [{ id: 'p1', colorName: 'Blue', hex: '#3498db', type: 'pants' }, { id: 'p2', colorName: 'Black', hex: '#2c3e50', type: 'pants' }, { id: 'p3', colorName: 'Grey', hex: '#95a5a6', type: 'pants' }],
+                shoes: [{ id: 'sh1', colorName: 'White', hex: '#bdc3c7', type: 'shoes' }, { id: 'sh2', colorName: 'Black', hex: '#2c3e50', type: 'shoes' }]
+            };
+            let activeCategories = ['shirts', 'pants'];
+            let currentSelection = {};
+            let completedCombos = 0;
+            let totalCombinations = 1;
+            let isAnimating = false;
+            let is3DView = false;
+            let allCombos = []; 
+            let usedCombos = new Set();
+            const toggleShirts = document.getElementById('toggle-shirts');
+            const togglePants = document.getElementById('toggle-pants');
+            const toggleShoes = document.getElementById('toggle-shoes');
+            const builderArea = document.getElementById('builder-area');
+            const combineBtn = document.getElementById('combine-btn');
+            const fillAllBtn = document.getElementById('fill-all-btn');
+            const btn3D = document.getElementById('btn-3d');
+            const resetBtn = document.getElementById('reset-btn');
+            const previewArea = document.getElementById('preview-area');
+            const resultsArea = document.getElementById('results-area');
+            const mathSummary = document.getElementById('math-summary');
+            function getSVG(type, color) { return `<svg viewBox="0 0 24 24" style="fill: ${color} !important;">${svgPaths[type]}</svg>`; }
+            function buildUI() {
+                builderArea.innerHTML = ''; totalCombinations = 1; currentSelection = {}; isAnimating = false;
+                activeCategories.forEach(catKey => {
+                    const categoryItems = allItems[catKey]; if (!categoryItems) return;
+                    totalCombinations *= categoryItems.length;
+                    const box = document.createElement('div'); box.className = 'category-box';
+                    const title = document.createElement('h3'); title.innerText = `${catKey.charAt(0).toUpperCase() + catKey.slice(1)} (${categoryItems.length})`;
+                    box.appendChild(title);
+                    const grid = document.createElement('div'); grid.className = 'item-grid'; grid.id = `container-${catKey}`;
+                    categoryItems.forEach(item => {
+                        const card = document.createElement('div'); card.className = 'item-card';
+                        card.innerHTML = `${getSVG(item.type, item.hex)}<span class="label">${item.colorName}</span>`;
+                        card.onclick = () => selectItem(catKey, item, card); grid.appendChild(card);
+                    });
+                    box.appendChild(grid); builderArea.appendChild(box);
+                });
+                if (activeCategories.includes('shoes')) { btn3D.style.display = 'block'; } else { btn3D.style.display = 'none'; if (is3DView) { is3DView = false; resultsArea.classList.remove('is-3d'); btn3D.innerText = '3D View 📦'; } }
+                generateSlots(); updatePreview(); fillAllBtn.disabled = false;
+            }
+            function selectItem(categoryKey, item, element) {
+                if (isAnimating) return; const parent = element.parentElement;
+                parent.querySelectorAll('.item-card').forEach(el => el.classList.remove('selected'));
+                element.classList.add('selected'); currentSelection[categoryKey] = item; updatePreview();
+            }
+            function updatePreview() {
+                const allSelected = activeCategories.every(cat => currentSelection[cat]);
+                if (allSelected && activeCategories.length > 0 && !isAnimating) {
+                    const textParts = activeCategories.map(cat => currentSelection[cat].colorName);
+                    previewArea.innerHTML = `Ready: ${textParts.join(' + ')}`; combineBtn.disabled = false;
+                } else { previewArea.innerHTML = `<em>Select items from each group to build a combo...</em>`; combineBtn.disabled = true; }
+            }
+            function generateSlots() {
+                resultsArea.innerHTML = ''; usedCombos.clear(); allCombos = []; 
+                if (activeCategories.length === 0) { resultsArea.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">Select at least one category above.</div>'; mathSummary.innerHTML = `0 Combinations`; fillAllBtn.disabled = true; return; }
+                const hasShoes = activeCategories.includes('shoes'); const shoesList = hasShoes ? allItems.shoes : [null];
+                const shirtsList = allItems.shirts; const pantsList = allItems.pants; const cols = shirtsList.length; 
+                shoesList.forEach(shoe => { pantsList.forEach(pants => { shirtsList.forEach(shirt => { const combo = []; if (activeCategories.includes('shirts')) combo.push(shirt); if (activeCategories.includes('pants')) combo.push(pants); if (hasShoes) combo.push(shoe); if (combo.length === activeCategories.length) allCombos.push(combo); }); }); });
+                shoesList.forEach((shoe, index) => {
+                    const layerContainer = document.createElement('div'); layerContainer.className = 'layer-container';
+                    const zOffset = (index - (shoesList.length - 1) / 2) * 250; layerContainer.style.setProperty('--z-offset', `${zOffset}px`);
+                    if (hasShoes) { const layerTitle = document.createElement('div'); layerTitle.className = 'layer-title'; layerTitle.innerHTML = `${getSVG('shoes', shoe.hex)} ${shoe.colorName} Shoes Layer`; layerContainer.appendChild(layerTitle); }
+                    const areaWrapper = document.createElement('div'); areaWrapper.className = 'area-model-wrapper';
+                    const cornerSpacer = document.createElement('div'); cornerSpacer.className = 'corner-spacer'; areaWrapper.appendChild(cornerSpacer);
+                    const xLabels = document.createElement('div'); xLabels.className = 'axis-label-x'; xLabels.style.gridTemplateColumns = `repeat(${cols}, 1fr)`; shirtsList.forEach(s => { xLabels.innerHTML += `<span>${s.colorName}</span>`; }); areaWrapper.appendChild(xLabels);
+                    const yLabels = document.createElement('div'); yLabels.className = 'axis-label-y'; yLabels.style.gridTemplateRows = `repeat(${pantsList.length}, 1fr)`; pantsList.forEach(p => { yLabels.innerHTML += `<span>${p.colorName}</span>`; }); areaWrapper.appendChild(yLabels);
+                    const grid = document.createElement('div'); grid.className = 'area-grid'; grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                    pantsList.forEach(pants => { shirtsList.forEach(shirt => { const combo = []; if (activeCategories.includes('shirts')) combo.push(shirt); if (activeCategories.includes('pants')) combo.push(pants); if (hasShoes) combo.push(shoe); if (combo.length === activeCategories.length) { const slot = document.createElement('div'); slot.className = 'combo-slot'; const comboId = combo.map(item => item.id).join('-'); slot.id = `slot-${comboId}`; slot.dataset.comboId = comboId; slot.innerHTML = `<span class="text-row">Empty</span>`; grid.appendChild(slot); } }); });
+                    areaWrapper.appendChild(grid); layerContainer.appendChild(areaWrapper); resultsArea.appendChild(layerContainer);
+                });
+                if (is3DView) resultsArea.classList.add('is-3d');
+                completedCombos = 0; mathSummary.innerHTML = `0 / ${totalCombinations} Combinations Found`; mathSummary.style.color = "#c0392b";
+            }
+            function buildSlotHTML(comboArray) { let html = ''; comboArray.forEach(item => { html += `<div class="slot-item-wrapper">${getSVG(item.type, item.hex)}<span class="text-row">${item.colorName}</span></div>`; }); return html; }
+            function updateSummary() {
+                completedCombos = document.querySelectorAll('.combo-slot.filled').length; mathSummary.innerHTML = `${completedCombos} / ${totalCombinations} Combinations Found`;
+                if (completedCombos === totalCombinations) { const mathParts = activeCategories.map(cat => allItems[cat].length); mathSummary.innerHTML = `🎉 ${totalCombinations} / ${totalCombinations}! You found them all!<br>${mathParts.join(' × ')} = ${totalCombinations}`; mathSummary.style.color = "#2ecc71"; combineBtn.disabled = true; fillAllBtn.disabled = true; }
+            }
+            combineBtn.onclick = async () => {
+                if (isAnimating) return; const allSelected = activeCategories.every(cat => currentSelection[cat]); if (!allSelected || activeCategories.length === 0) return;
+                isAnimating = true; combineBtn.disabled = true; const comboItems = activeCategories.map(cat => currentSelection[cat]); const comboId = comboItems.map(item => item.id).join('-'); const targetSlot = document.getElementById(`slot-${comboId}`);
+                if (!targetSlot || targetSlot.classList.contains('filled')) { isAnimating = false; updatePreview(); return; }
+                targetSlot.classList.add('targeting'); const targetRect = targetSlot.getBoundingClientRect(); let animations = [];
+                activeCategories.forEach(cat => {
+                    const selectedCard = document.querySelector(`#container-${cat} .item-card.selected`); if (!selectedCard) return; const sourceRect = selectedCard.getBoundingClientRect();
+                    const clone = selectedCard.cloneNode(true); clone.className = 'item-card flying-clone'; clone.style.left = `${sourceRect.left}px`; clone.style.top = `${sourceRect.top}px`; clone.style.width = `${sourceRect.width}px`; clone.style.height = `${sourceRect.height}px`; clone.classList.remove('selected'); document.body.appendChild(clone);
+                    const targetX = targetRect.left + (targetRect.width / 2) - (sourceRect.width / 2); const targetY = targetRect.top + (targetRect.height / 2) - (sourceRect.height / 2); const deltaX = targetX - sourceRect.left; const deltaY = targetY - sourceRect.top;
+                    const anim = clone.animate([{ transform: 'translate(0, 0) scale(1)', opacity: 1 }, { transform: `translate(${deltaX}px, ${deltaY}px) scale(0.5)`, opacity: 0 }], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)', fill: 'forwards' }); animations.push(anim);
+                });
+                await Promise.all(animations.map(a => a.finished)); document.querySelectorAll('.flying-clone').forEach(el => el.remove()); targetSlot.classList.remove('targeting');
+                usedCombos.add(comboId); targetSlot.className = 'combo-slot filled'; targetSlot.innerHTML = buildSlotHTML(comboItems); updateSummary(); document.querySelectorAll('.item-card').forEach(el => el.classList.remove('selected')); currentSelection = {}; isAnimating = false; updatePreview();
+            };
+            fillAllBtn.onclick = async () => {
+                if (isAnimating || completedCombos === totalCombinations) return; isAnimating = true; combineBtn.disabled = true; fillAllBtn.disabled = true;
+                const emptySlots = Array.from(document.querySelectorAll('.combo-slot')).filter(slot => !slot.classList.contains('filled'));
+                const missingCombos = allCombos.filter(combo => { const comboId = combo.map(item => item.id).join('-'); return !usedCombos.has(comboId); });
+                for (let i = 0; i < emptySlots.length; i++) {
+                    const slot = emptySlots[i]; const combo = missingCombos[i]; if (!combo) continue;
+                    slot.className = 'combo-slot filled'; slot.innerHTML = buildSlotHTML(combo); const comboId = combo.map(item => item.id).join('-'); usedCombos.add(comboId);
+                    slot.animate([{ transform: 'scale(0.5)', opacity: 0 }, { transform: 'scale(1.05)', opacity: 1 }, { transform: 'scale(1)', opacity: 1 }], { duration: 300, easing: 'ease-out', fill: 'forwards' });
+                    updateSummary(); await new Promise(resolve => setTimeout(resolve, 60)); 
+                }
+                document.querySelectorAll('.item-card').forEach(el => el.classList.remove('selected')); currentSelection = {}; isAnimating = false; updatePreview();
+            };
+            btn3D.onclick = () => { if (isAnimating) return; is3DView = !is3DView; resultsArea.classList.toggle('is-3d', is3DView); btn3D.innerText = is3DView ? '2D View 📄' : '3D View 📦'; };
+            resetBtn.onclick = () => { isAnimating = false; currentSelection = {}; allCombos = []; usedCombos.clear(); completedCombos = 0; is3DView = false; resultsArea.classList.remove('is-3d'); btn3D.innerText = '3D View 📦'; document.querySelectorAll('.item-card').forEach(el => el.classList.remove('selected')); generateSlots(); updatePreview(); fillAllBtn.disabled = false; };
+            function updateActiveCategories() { if (isAnimating) return; activeCategories = []; if (toggleShirts.checked) activeCategories.push('shirts'); if (togglePants.checked) activeCategories.push('pants'); if (toggleShoes.checked) activeCategories.push('shoes'); allCombos = []; buildUI(); }
+            toggleShirts.addEventListener('change', updateActiveCategories); togglePants.addEventListener('change', updateActiveCategories); toggleShoes.addEventListener('change', updateActiveCategories);
+            buildUI();
+        })();
+    </script>
+</body>
+</html>

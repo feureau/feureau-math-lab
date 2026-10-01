@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feureau's Math Lab</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+        .header p {
+            font-size: 1.1rem;
+            color: #555;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 25px;
+            text-decoration: none;
+            color: #333;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            border-color: #3498db;
+        }
+        .card h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.3rem;
+            color: #2980b9;
+        }
+        .card p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #666;
+            line-height: 1.5;
+        }
+        .card .tag {
+            display: inline-block;
+            background: #e8f4fd;
+            color: #2980b9;
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            align-self: flex-start;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🧪 Feureau's Math Lab</h1>
+        <p>An interactive collection of math and science problems, step-by-step explanations, and custom visual web widgets for deep understanding.</p>
+    </div>
+
+    <div class="grid">
+        <!-- Card 1: Combinatorics -->
+        <a href="combinatorics.html" class="card">
+            <span class="tag">Combinatorics</span>
+            <h2>👕👖👟 AND vs OR Principle</h2>
+            <p>Explore the fundamental counting principle. Learn why we multiply when combining items (AND) and why we add when choosing between items (OR). Includes a 3D cube visualization!</p>
+        </a>
+
+        <!-- Placeholder for future content -->
+        <div class="card" style="opacity: 0.5; cursor: not-allowed;">
+            <span class="tag">Coming Soon</span>
+            <h2>📐 Geometry</h2>
+            <p>Interactive proofs and visualizations for geometry problems.</p>
+        </div>
+
+        <div class="card" style="opacity: 0.5; cursor: not-allowed;">
+            <span class="tag">Coming Soon</span>
+            <h2>🔢 Number Theory</h2>
+            <p>Exploring patterns, primes, and modular arithmetic.</p>
+        </div>
+    </div>
+
+</body>
+</html>
