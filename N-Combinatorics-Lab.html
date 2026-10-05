@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N-Combinatorics Lab - Feureau's Math Lab</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container { max-width: 1000px; width: 100%; }
+        .back-link {
+            display: inline-block; margin-bottom: 20px; text-decoration: none;
+            color: #2980b9; font-weight: bold; font-size: 1rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        h1 { color: #2c3e50; margin-top: 0; text-align: center; }
+        p.subtitle { text-align: center; color: #555; margin-bottom: 30px; }
+
+        .panel {
+            background: #fff; border: 2px solid #e9ecef; border-radius: 12px;
+            padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px;
+        }
+        .panel h2 { margin-top: 0; font-size: 1.2rem; color: #2c3e50; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; }
+
+        .category-control {
+            background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
+            padding: 10px; margin-bottom: 10px; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .category-control input {
+            width: 50px; padding: 5px; border: 1px solid #ccc;
+            border-radius: 4px; text-align: center; font-weight: bold;
+        }
+        .category-control .emoji { font-size: 1.5rem; margin-right: 10px; }
+        
+        .btn {
+            padding: 10px 15px; border-radius: 8px; font-weight: bold;
+            border: none; cursor: pointer; transition: background 0.2s; margin-top: 10px;
+        }
+        .btn-add { background: #3498db; color: white; width: 100%; }
+        .btn-add:hover { background: #2980b9; }
+        .btn-danger { background: #e74c3c; color: white; padding: 5px 10px; font-size: 0.8rem; margin-top: 0; }
+        .btn-danger:hover { background: #c0392b; }
+
+        .math-display {
+            background: #e8f8f5; border: 2px solid #1abc9c; border-radius: 12px;
+            padding: 20px; text-align: center; margin-bottom: 20px;
+        }
+        .math-equation {
+            font-family: "Courier New", Courier, monospace; font-size: 1.8rem;
+            font-weight: bold; color: #c0392b; word-break: break-all;
+        }
+        .math-total { font-size: 1.3rem; color: #16a085; font-weight: bold; margin-top: 10px; }
+
+        #network-panel { transition: all 0.3s; }
+
+        .network-controls {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #f1f2f6;
+        }
+        .btn-network {
+            background: #34495e; color: white; padding: 8px 14px; font-size: 0.85rem;
+            border-radius: 6px; margin-top: 0; display: inline-flex;
+            align-items: center; gap: 5px; transition: background 0.2s, transform 0.1s;
+        }
+        .btn-network:hover:not(:disabled) { background: #2c3e50; }
+        .btn-network:active:not(:disabled) { transform: scale(0.97); }
+        .btn-network:disabled { background: #bdc3c7; cursor: not-allowed; opacity: 0.6; }
+        .btn-network.btn-play { background: #27ae60; }
+        .btn-network.btn-play:hover:not(:disabled) { background: #229954; }
+        .btn-network.btn-play.is-playing { background: #e67e22; }
+        .btn-network.btn-play.is-playing:hover:not(:disabled) { background: #d35400; }
+        .btn-network.btn-fullscreen { background: #8e44ad; }
+        .btn-network.btn-fullscreen:hover:not(:disabled) { background: #7d3c98; }
+        .btn-network.btn-peek { background: #16a085; }
+        .btn-network.btn-peek:hover:not(:disabled) { background: #138d75; }
+        .btn-network.btn-speedrun { background: #e84393; }
+        .btn-network.btn-speedrun:hover:not(:disabled) { background: #c2185b; }
+        .btn-network.btn-speedrun.is-running {
+            background: #e67e22;
+            animation: speedrunPulse 0.6s ease-in-out infinite;
+        }
+        @keyframes speedrunPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.75; }
+        }
+
+        .network-hint {
+            text-align: center; color: #888; font-size: 0.85rem;
+            padding: 8px; font-style: italic;
+        }
+        .network-scroll { overflow-x: auto; padding: 10px 0; }
+        .network-wrapper {
+            position: relative; display: flex; justify-content: center;
+            align-items: flex-start; gap: 100px; padding: 30px 20px;
+            min-height: 200px; min-width: fit-content; margin: 0 auto;
+        }
+        .network-column {
+            position: relative; z-index: 2; display: flex;
+            flex-direction: column; align-items: center; gap: 12px;
+        }
+        .network-header {
+            font-weight: bold; color: #555; padding: 4px 12px;
+            background: #e9ecef; border-radius: 6px; font-size: 0.85rem;
+            text-align: center; white-space: nowrap; margin-bottom: 5px;
+        }
+        .network-item {
+            background: #fff; border: 2px solid #3498db; border-radius: 8px;
+            padding: 8px 14px; font-size: 0.9rem; font-weight: bold; color: #333;
+            text-align: center; min-width: 55px; transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            animation: itemFadeIn 0.4s ease both;
+        }
+        @keyframes itemFadeIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .network-item.highlighted {
+            background: #fff3cd; border-width: 3px;
+            box-shadow: 0 0 0 5px rgba(241, 196, 15, 0.35);
+            transform: scale(1.12);
+        }
+        .network-svg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1; overflow: visible;
+        }
+
+        #network-panel:fullscreen {
+            background: #fff; padding: 20px; border-radius: 0;
+            display: flex; flex-direction: column; height: 100vh;
+            box-sizing: border-box; overflow: hidden; margin: 0;
+        }
+        #network-panel:fullscreen .network-scroll {
+            flex: 1; overflow: auto; display: flex;
+            align-items: center; justify-content: center;
+        }
+        #network-panel:fullscreen .network-wrapper { gap: 160px; }
+        #network-panel:fullscreen .network-item { padding: 12px 20px; font-size: 1.1rem; min-width: 70px; }
+        #network-panel:fullscreen .network-header { font-size: 1rem; padding: 6px 16px; }
+
+        /* --- COMBINATION TABLE --- */
+        .combo-list-container {
+            max-height: 700px; overflow-y: auto; background: #fff;
+            border: 2px solid #e9ecef; border-radius: 12px; padding: 20px;
+        }
+        .combo-list-header {
+            text-align: center; font-weight: bold; color: #555;
+            margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px dashed #eee;
+        }
+        .soft-warning {
+            background: #fff3cd; border: 1px solid #ffeeba; color: #856404;
+            padding: 10px; border-radius: 8px; text-align: center;
+            font-size: 0.9rem; margin-bottom: 15px;
+        }
+        .combo-truncated {
+            text-align: center;
+            color: #856404;
+            font-style: italic;
+            font-size: 0.85rem;
+            padding: 12px;
+            background: #fff3cd;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        .combo-table-wrap {
+            overflow: auto;
+            max-height: 600px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            background: #fff;
+        }
+        .combo-table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 0.9rem;
+        }
+        .combo-table thead th {
+            background: #f8f9fa;
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: bold;
+            color: #333;
+            border-bottom: 3px solid #ddd;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        .combo-table thead th.col-num {
+            width: 55px;
+            text-align: center;
+            color: #666;
+            background: #eef0f2;
+            left: 0;
+            z-index: 3;
+        }
+        .combo-table tbody td {
+            padding: 8px 14px;
+            white-space: nowrap;
+            color: #333;
+            font-weight: 500;
+            background: var(--cell-tint, transparent);
+            border-bottom: 1px solid var(--cell-border, transparent);
+            border-left: 3px solid var(--cell-accent, transparent);
+        }
+        .combo-table tbody td.col-num {
+            text-align: center;
+            color: #888;
+            font-family: "Courier New", Courier, monospace;
+            font-weight: bold;
+            background: var(--num-bg, #fafafa);
+            font-size: 0.8rem;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            border-left: none;
+        }
+        .combo-table tbody tr:hover td {
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+        
+        <h1>🧪 The N-Combinatorics Lab</h1>
+        <p class="subtitle">Add categories and items. Watch how the total number of combinations explodes!</p>
+
+        <div class="panel">
+            <h2>1. Build Your Categories</h2>
+            <div id="controls-container"></div>
+            <button class="btn btn-add" onclick="addCategory()">+ Add New Category</button>
+        </div>
+
+        <div class="math-display">
+            <div class="math-equation" id="math-equation">...</div>
+            <div class="math-total" id="math-total">Total Combinations: ...</div>
+        </div>
+
+        <div class="panel" id="network-panel">
+            <h2>2. How They Connect</h2>
+            <div class="network-controls">
+                <button class="btn btn-network btn-fullscreen" id="btn-fullscreen" onclick="toggleFullscreen()" title="Fullscreen">⛶ Fullscreen</button>
+                <button class="btn btn-network" id="btn-reset" onclick="resetAnimation()" title="Reset animation to start">↺ Reset</button>
+                <button class="btn btn-network" id="btn-step" onclick="stepForward()" title="Reveal one combination">⏭ Step</button>
+                <button class="btn btn-network btn-play" id="btn-play" onclick="playFromCurrent()" title="Play from current position">▶ Play</button>
+                <button class="btn btn-network btn-play" id="btn-restart" onclick="playFromStart()" title="Play from start">⏮ Restart</button>
+                <button class="btn btn-network btn-peek" id="btn-peek" onclick="peekRevealed()" title="Brighten all revealed lines">👁 Peek</button>
+                <button class="btn btn-network btn-speedrun" id="btn-speedrun" onclick="runSpeedrun()" title="Reveal everything fast">🚀 Speedrun</button>
+            </div>
+            <div class="network-scroll">
+                <div id="network-view"></div>
+            </div>
+            <div class="network-hint" id="network-hint">Click ▶ Play to animate the connections combination by combination.</div>
+        </div>
+
+        <div class="panel">
+            <h2>3. The Combinations</h2>
+            <div id="combo-list-container" class="combo-list-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const PREDEFINED_ITEMS = [
+            { name: 'Shoes', emoji: '👟' },
+            { name: 'Jackets', emoji: '🧥' },
+            { name: 'Caps', emoji: '🧢' },
+            { name: 'Scarves', emoji: '🧣' },
+            { name: 'Gloves', emoji: '🧤' },
+            { name: 'Sunglasses', emoji: '🕶️' },
+            { name: 'Backpacks', emoji: '🎒' },
+            { name: 'Watches', emoji: '⌚' },
+            { name: 'Socks', emoji: '🧦' },
+            { name: 'Ties', emoji: '👔' },
+            { name: 'Dresses', emoji: '👗' },
+            { name: 'Shorts', emoji: '🩳' },
+            { name: 'Hats', emoji: '👒' }
+        ];
+
+        const CATEGORY_COLORS = [
+            '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6',
+            '#e67e22', '#1abc9c', '#34495e', '#e84393', '#00b894'
+        ];
+
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        const DIM_OPACITY = 0.18;
+        const BRIGHT_OPACITY = 1.0;
+        const SEGMENT_GAP = 40;
+        const COMET_LENGTH_MAX = 80;
+        const MAX_TABLE_ROWS = 2000;
+
+        // Zebra tints for the combination table
+        const TINT_STRONG = 0.22;
+        const TINT_LIGHT = 0.04;
+        const ROW_DIVIDER = 'rgba(0, 0, 0, 0.10)';
+        const NUM_BG_STRONG = '#eaeaea';
+        const NUM_BG_LIGHT = '#f8f8f8';
+
+        function getRandomCount() { return Math.floor(Math.random() * 4) + 2; }
+
+        function getComboColor(comboIdx) {
+            const hue = (comboIdx * 137.508) % 360;
+            return `hsl(${hue.toFixed(1)}, 72%, 48%)`;
+        }
+
+        function hexToRgba(hex, alpha) {
+            const num = parseInt(hex.slice(1), 16);
+            const r = (num >> 16) & 0xFF;
+            const g = (num >> 8) & 0xFF;
+            const b = num & 0xFF;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        let categories = [
+            { id: 1, name: 'Shirts', emoji: '👕', count: getRandomCount(), color: CATEGORY_COLORS[0] },
+            { id: 2, name: 'Pants', emoji: '👖', count: getRandomCount(), color: CATEGORY_COLORS[1] }
+        ];
+        let nextId = 3;
+
+        let pathData = [];
+        let combinationOrder = [];
+        let comboSegments = [];
+        let currentStepIndex = -1;
+        let isPlaying = false;
+        let isRevealing = false;
+        let isFinaleRunning = false;
+        let isSpeedrunning = false;
+        let playbackToken = 0;
+        let animationEpoch = 0;
+
+        const controlsContainer = document.getElementById('controls-container');
+        const mathEquation = document.getElementById('math-equation');
+        const mathTotal = document.getElementById('math-total');
+        const networkView = document.getElementById('network-view');
+        const comboListContainer = document.getElementById('combo-list-container');
+        const hint = document.getElementById('network-hint');
+
+        function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+        function lightenColor(colorStr, percent) {
+            if (colorStr.startsWith('hsl')) {
+                const m = colorStr.match(/hsl\(([\d.]+),\s*([\d.]+)%,\s*([\d.]+)%\)/);
+                if (m) {
+                    const h = parseFloat(m[1]);
+                    const s = parseFloat(m[2]);
+                    const l = parseFloat(m[3]);
+                    const nl = Math.min(100, l + (100 - l) * percent);
+                    return `hsl(${h}, ${s}%, ${nl}%)`;
+                }
+            }
+            const num = parseInt(colorStr.slice(1), 16);
+            const r = (num >> 16) & 0xFF;
+            const g = (num >> 8) & 0xFF;
+            const b = num & 0xFF;
+            const nr = Math.min(255, Math.round(r + (255 - r) * percent));
+            const ng = Math.min(255, Math.round(g + (255 - g) * percent));
+            const nb = Math.min(255, Math.round(b + (255 - b) * percent));
+            return `rgb(${nr}, ${ng}, ${nb})`;
+        }
+
+        function getAnimationDuration() {
+            const total = combinationOrder.length;
+            if (total > 200) return 140;
+            if (total > 100) return 200;
+            if (total > 50) return 260;
+            if (total > 20) return 340;
+            return 440;
+        }
+
+        function getLingerTime() {
+            const total = combinationOrder.length;
+            if (total > 100) return 60;
+            if (total > 50) return 150;
+            if (total > 20) return 280;
+            return 450;
+        }
+
+        function addCategory() {
+            const newIndex = categories.length - 2;
+            let newCat;
+            const randomCount = getRandomCount();
+            const color = CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length];
+            if (newIndex >= 0 && newIndex < PREDEFINED_ITEMS.length) {
+                const template = PREDEFINED_ITEMS[newIndex];
+                newCat = { id: nextId++, name: template.name, emoji: template.emoji, count: randomCount, color };
+            } else {
+                newCat = { id: nextId++, name: `Category ${categories.length + 1}`, emoji: '✨', count: randomCount, color };
+            }
+            categories.push(newCat);
+            render();
+        }
+
+        function removeCategory(id) {
+            categories = categories.filter(c => c.id !== id);
+            categories.forEach((cat, i) => { cat.color = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+            render();
+        }
+
+        function updateCount(id, newCount) {
+            const cat = categories.find(c => c.id === id);
+            if (cat) cat.count = Math.max(1, parseInt(newCount) || 1);
+            render();
+        }
+
+        function render() {
+            stopPlayback();
+            abortAnimations();
+            renderControls();
+            renderMath();
+            renderNetwork();
+            renderCombinations();
+        }
+
+        function renderControls() {
+            controlsContainer.innerHTML = '';
+            categories.forEach(cat => {
+                const div = document.createElement('div');
+                div.className = 'category-control';
+                div.innerHTML = `
+                    <div style="display:flex; align-items:center;">
+                        <span class="emoji">${cat.emoji}</span>
+                        <span><strong>${cat.name}</strong></span>
+                    </div>
+                    <div style="display:flex;align-items:center; gap:10px;">
+                        <label style="font-size:0.8rem; color:#555;">Items:</label>
+                        <input type="number" min="1" max="20" value="${cat.count}" onchange="updateCount(${cat.id}, this.value)">
+                        <button class="btn btn-danger" onclick="removeCategory(${cat.id})">X</button>
+                    </div>
+                `;
+                controlsContainer.appendChild(div);
+            });
+        }
+
+        function renderMath() {
+            if (categories.length === 0) {
+                mathEquation.innerText = '0';
+                mathTotal.innerText = 'Total Combinations: 0';
+                return;
+            }
+            const counts = categories.map(c => c.count);
+            const total = counts.reduce((a, b) => a * b, 1);
+            mathEquation.innerText = counts.join(' × ') + ' = ' + total;
+            mathTotal.innerText = `Total Combinations: ${total}`;
+        }
+
+        function renderNetwork() {
+            abortAnimations();
+            pathData = [];
+            combinationOrder = [];
+            comboSegments = [];
+            currentStepIndex = -1;
+
+            networkView.innerHTML = '';
+
+            if (categories.length < 2) {
+                networkView.innerHTML = '<p style="text-align:center; color:#999; padding:20px;">Add at least two categories to see the network.</p>';
+                updateButtonStates();
+                updateHint();
+                return;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'network-wrapper';
+
+            categories.forEach((cat, catIdx) => {
+                const col = document.createElement('div');
+                col.className = 'network-column';
+                const header = document.createElement('div');
+                header.className = 'network-header';
+                header.style.color = cat.color;
+                header.innerHTML = `${cat.emoji} ${cat.name}`;
+                col.appendChild(header);
+                for (let i = 0; i < cat.count; i++) {
+                    const item = document.createElement('div');
+                    item.className = 'network-item';
+                    item.style.borderColor = cat.color;
+                    item.dataset.catIdx = catIdx;
+                    item.dataset.itemIdx = i;
+                    item.innerHTML = `${cat.emoji} ${i + 1}`;
+                    col.appendChild(item);
+                }
+                wrapper.appendChild(col);
+            });
+
+            networkView.appendChild(wrapper);
+
+            setTimeout(() => {
+                buildCombinationOrder();
+                buildPaths(wrapper);
+                updateButtonStates();
+                updateHint();
+            }, 100);
+        }
+
+        function buildCombinationOrder() {
+            combinationOrder = [];
+            const counts = categories.map(c => c.count);
+            const indices = new Array(categories.length).fill(0);
+            function recurse(pos) {
+                if (pos === categories.length) {
+                    combinationOrder.push([...indices]);
+                    return;
+                }
+                for (let i = 0; i < counts[pos]; i++) {
+                    indices[pos] = i;
+                    recurse(pos + 1);
+                }
+            }
+            recurse(0);
+
+            const segmentCounters = {};
+            comboSegments = combinationOrder.map((combo) => {
+                const segs = [];
+                for (let i = 0; i < combo.length - 1; i++) {
+                    const key = `${i}-${combo[i]}-${i+1}-${combo[i+1]}`;
+                    const v = segmentCounters[key] || 0;
+                    segmentCounters[key] = v + 1;
+                    segs.push({
+                        a: i, b: combo[i],
+                        c: i + 1, d: combo[i + 1],
+                        visitIdx: v
+                    });
+                }
+                return segs;
+            });
+
+            const sourceFans = {};
+            const targetFans = {};
+
+            comboSegments.forEach((segs, ci) => {
+                segs.forEach((s, si) => {
+                    const srcKey = `${s.a}-${s.b}`;
+                    const tgtKey = `${s.c}-${s.d}`;
+                    (sourceFans[srcKey] = sourceFans[srcKey] || []).push({
+                        d: s.d, v: s.visitIdx, comboIdx: ci, segIdx: si
+                    });
+                    (targetFans[tgtKey] = targetFans[tgtKey] || []).push({
+                        b: s.b, v: s.visitIdx, comboIdx: ci, segIdx: si
+                    });
+                });
+            });
+
+            const sourceSlotMap = new Map();
+            const targetSlotMap = new Map();
+
+            for (const key in sourceFans) {
+                const fan = sourceFans[key];
+                fan.sort((x, y) => x.d - y.d || x.v - y.v);
+                fan.forEach((item, i) => { item.slot = i; item.total = fan.length; });
+                fan.forEach(item => {
+                    sourceSlotMap.set(`${item.comboIdx}-${item.segIdx}`, { slot: item.slot, total: item.total });
+                });
+            }
+            for (const key in targetFans) {
+                const fan = targetFans[key];
+                fan.sort((x, y) => x.b - y.b || x.v - y.v);
+                fan.forEach((item, i) => { item.slot = i; item.total = fan.length; });
+                fan.forEach(item => {
+                    targetSlotMap.set(`${item.comboIdx}-${item.segIdx}`, { slot: item.slot, total: item.total });
+                });
+            }
+
+            comboSegments.forEach((segs, ci) => {
+                segs.forEach((s, si) => {
+                    const k = `${ci}-${si}`;
+                    const ss = sourceSlotMap.get(k);
+                    const ts = targetSlotMap.get(k);
+                    s.sourceSlot = ss.slot;
+                    s.sourceTotal = ss.total;
+                    s.targetSlot = ts.slot;
+                    s.targetTotal = ts.total;
+                });
+            });
+        }
+
+        function buildPaths(wrapper) {
+            const wrapperRect = wrapper.getBoundingClientRect();
+
+            const svg = document.createElementNS(SVG_NS, 'svg');
+            svg.classList.add('network-svg');
+
+            const defs = document.createElementNS(SVG_NS, 'defs');
+            defs.innerHTML = `
+                <filter id="cometGlow" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge>
+                        <feMergeNode in="blur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+            `;
+            svg.appendChild(defs);
+            wrapper.insertBefore(svg, wrapper.firstChild);
+
+            const columns = wrapper.querySelectorAll('.network-column');
+            const columnItems = Array.from(columns).map(col =>
+                Array.from(col.querySelectorAll('.network-item'))
+            );
+
+            const itemRects = columnItems.map(items => items.map(item => {
+                const r = item.getBoundingClientRect();
+                return {
+                    right: r.right - wrapperRect.left,
+                    left: r.left - wrapperRect.left,
+                    cy: r.top + r.height / 2 - wrapperRect.top,
+                    height: r.height
+                };
+            }));
+
+            const maxSpread = itemRects[0][0].height * 0.75;
+
+            pathData = [];
+
+            comboSegments.forEach((segs, ci) => {
+                const comboColor = getComboColor(ci);
+                segs.forEach((s, si) => {
+                    const srcRect = itemRects[s.a][s.b];
+                    const tgtRect = itemRects[s.c][s.d];
+
+                    const sourceSpacing = s.sourceTotal > 1 ? maxSpread / (s.sourceTotal - 1) : 0;
+                    const targetSpacing = s.targetTotal > 1 ? maxSpread / (s.targetTotal - 1) : 0;
+
+                    const sourceOffset = (s.sourceSlot - (s.sourceTotal - 1) / 2) * sourceSpacing;
+                    const targetOffset = (s.targetSlot - (s.targetTotal - 1) / 2) * targetSpacing;
+
+                    const startX = srcRect.right;
+                    const startY = srcRect.cy + sourceOffset;
+                    const endX = tgtRect.left;
+                    const endY = tgtRect.cy + targetOffset;
+
+                    const dx = Math.max(40, (endX - startX) * 0.5);
+                    const bendFactor = 0.55;
+                    const ctrl1X = startX + dx;
+                    const ctrl1Y = startY + sourceOffset * bendFactor;
+                    const ctrl2X = endX - dx;
+                    const ctrl2Y = endY + targetOffset * bendFactor;
+
+                    const d = `M ${startX} ${startY} C ${ctrl1X} ${ctrl1Y}, ${ctrl2X} ${ctrl2Y}, ${endX} ${endY}`;
+
+                    const path = document.createElementNS(SVG_NS, 'path');
+                    path.setAttribute('d', d);
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('stroke', comboColor);
+                    path.setAttribute('stroke-width', '2');
+                    path.setAttribute('stroke-linecap', 'round');
+                    path.style.opacity = '0';
+
+                    const length = path.getTotalLength();
+                    path.style.strokeDasharray = length;
+                    path.style.strokeDashoffset = length;
+
+                    svg.appendChild(path);
+
+                    const pathIdx = pathData.length;
+                    s.pathIdx = pathIdx;
+                    pathData.push({
+                        path,
+                        length,
+                        color: comboColor,
+                        fromCat: s.a,
+                        comboIdx: ci,
+                        segIdx: si,
+                        isRevealed: false
+                    });
+                });
+            });
+        }
+
+        function highlightItems(combo) {
+            document.querySelectorAll('.network-item.highlighted').forEach(el => el.classList.remove('highlighted'));
+            combo.forEach((itemIdx, catIdx) => {
+                const el = document.querySelector(`.network-item[data-cat-idx="${catIdx}"][data-item-idx="${itemIdx}"]`);
+                if (el) el.classList.add('highlighted');
+            });
+        }
+
+        function clearItemHighlights() {
+            document.querySelectorAll('.network-item.highlighted').forEach(el => el.classList.remove('highlighted'));
+        }
+
+        function createTrailElement(p) {
+            const trail = document.createElementNS(SVG_NS, 'path');
+            trail.setAttribute('fill', 'none');
+            trail.setAttribute('stroke', lightenColor(p.color, 0.35));
+            trail.setAttribute('stroke-width', '6');
+            trail.setAttribute('stroke-linecap', 'round');
+            trail.setAttribute('opacity', '0');
+            trail.setAttribute('filter', 'url(#cometGlow)');
+            return trail;
+        }
+
+        function createHeadElement(p) {
+            const head = document.createElementNS(SVG_NS, 'circle');
+            head.setAttribute('r', '7');
+            head.setAttribute('fill', '#ffffff');
+            head.setAttribute('stroke', p.color);
+            head.setAttribute('stroke-width', '3');
+            head.setAttribute('filter', 'url(#cometGlow)');
+            head.style.opacity = '0';
+            return head;
+        }
+
+        function buildTrailPath(path, tailPos, headPos) {
+            const samples = 16;
+            const pts = [];
+            for (let i = 0; i <= samples; i++) {
+                const pos = tailPos + (headPos - tailPos) * (i / samples);
+                const pt = path.getPointAtLength(pos);
+                pts.push(`${pt.x},${pt.y}`);
+            }
+            return 'M ' + pts.join(' L ');
+        }
+
+        function animatePathDraw(p, duration, startDelay = 0) {
+            return new Promise(resolve => {
+                const myEpoch = animationEpoch;
+                const path = p.path;
+                const length = p.length;
+                const svg = path.parentNode;
+
+                path.style.transition = 'none';
+                path.style.strokeDashoffset = length;
+                path.style.opacity = '1.0';
+                path.style.strokeWidth = '3';
+
+                const trail = createTrailElement(p);
+                const head = createHeadElement(p);
+                svg.appendChild(trail);
+                svg.appendChild(head);
+
+                const cometLength = Math.min(COMET_LENGTH_MAX, length * 0.4);
+                const startTime = performance.now();
+
+                function cleanup() {
+                    trail.style.transition = 'opacity 0.3s ease';
+                    head.style.transition = 'opacity 0.3s ease';
+                    trail.style.opacity = '0';
+                    head.style.opacity = '0';
+                    setTimeout(() => {
+                        trail.remove();
+                        head.remove();
+                        resolve();
+                    }, 340);
+                }
+
+                function frame(now) {
+                    if (myEpoch !== animationEpoch) {
+                        path.style.transition = 'none';
+                        path.style.strokeDashoffset = length;
+                        path.style.opacity = '0';
+                        path.style.strokeWidth = '2';
+                        trail.remove();
+                        head.remove();
+                        resolve();
+                        return;
+                    }
+
+                    const elapsed = now - startTime - startDelay;
+                    if (elapsed < 0) { requestAnimationFrame(frame); return; }
+
+                    const t = Math.min(1, elapsed / duration);
+                    const headPos = length * t;
+                    const tailPos = Math.max(0, headPos - cometLength);
+
+                    path.style.strokeDashoffset = length * (1 - t);
+                    trail.setAttribute('d', buildTrailPath(path, tailPos, headPos));
+                    trail.style.opacity = '0.95';
+
+                    const headPt = path.getPointAtLength(headPos);
+                    head.setAttribute('cx', headPt.x);
+                    head.setAttribute('cy', headPt.y);
+                    head.style.opacity = '1';
+
+                    if (t < 1) {
+                        requestAnimationFrame(frame);
+                    } else {
+                        path.style.transition = 'stroke-width 0.3s ease';
+                        path.style.strokeWidth = '2';
+                        cleanup();
+                    }
+                }
+                requestAnimationFrame(frame);
+            });
+        }
+
+        async function revealCombination(comboIdx, myToken) {
+            const segs = comboSegments[comboIdx];
+            if (!segs) return;
+
+            const currentPathIdxs = segs.map(s => s.pathIdx);
+            const currentPathSet = new Set(currentPathIdxs);
+
+            pathData.forEach((p, idx) => {
+                if (p.isRevealed && !currentPathSet.has(idx)) {
+                    p.path.style.transition = 'opacity 0.22s ease';
+                    p.path.style.opacity = String(DIM_OPACITY);
+                }
+            });
+
+            highlightItems(combinationOrder[comboIdx]);
+
+            const duration = getAnimationDuration();
+            const isTokenAlive = () => myToken === undefined || myToken === playbackToken;
+
+            for (let i = 0; i < segs.length; i++) {
+                if (!isTokenAlive()) return;
+                const p = pathData[segs[i].pathIdx];
+                p.isRevealed = true;
+                await animatePathDraw(p, duration);
+                if (i < segs.length - 1) {
+                    if (!isTokenAlive()) return;
+                    await delay(SEGMENT_GAP);
+                }
+            }
+        }
+
+        async function runFinale() {
+            if (pathData.length === 0) return;
+            isFinaleRunning = true;
+            updateButtonStates();
+            updateHint();
+
+            const myEpoch = animationEpoch;
+            const isAlive = () => myEpoch === animationEpoch;
+
+            const allPaths = [...pathData];
+
+            allPaths.forEach(p => {
+                p.path.style.transition = 'none';
+                p.path.style.strokeDashoffset = p.length;
+                p.path.style.opacity = '1';
+                p.path.style.strokeWidth = '3';
+                p.isRevealed = true;
+            });
+
+            const total = allPaths.length;
+            const duration = total > 300 ? 350 : (total > 100 ? 420 : 500);
+            const stagger = Math.min(28, 700 / Math.max(1, total));
+
+            const promises = allPaths.map((p, i) =>
+                animatePathDraw(p, duration, i * stagger)
+            );
+
+            await Promise.all(promises);
+
+            if (!isAlive()) {
+                isFinaleRunning = false;
+                updateButtonStates();
+                return;
+            }
+
+            allPaths.forEach(p => {
+                p.path.style.transition = 'none';
+                p.path.style.strokeDashoffset = '0';
+                p.path.style.opacity = String(BRIGHT_OPACITY);
+                p.path.style.strokeWidth = '2';
+                p.isRevealed = true;
+            });
+
+            clearItemHighlights();
+
+            isFinaleRunning = false;
+            updateButtonStates();
+            updateHint();
+        }
+
+        async function runSpeedrun() {
+            if (pathData.length === 0) return;
+
+            stopPlayback();
+            abortAnimations();
+            if (isRevealing || isFinaleRunning || isSpeedrunning) {
+                await delay(60);
+            }
+
+            isSpeedrunning = true;
+            isFinaleRunning = true;
+            updateButtonStates();
+            hint.innerText = '🚀 Speedrunning...';
+
+            const myEpoch = animationEpoch;
+            const isAlive = () => myEpoch === animationEpoch;
+
+            pathData.forEach(p => {
+                p.path.style.transition = 'none';
+                p.path.style.strokeDashoffset = p.length;
+                p.path.style.opacity = '1';
+                p.path.style.strokeWidth = '2';
+                p.isRevealed = false;
+            });
+
+            const groupsMap = new Map();
+            pathData.forEach(p => {
+                const key = p.fromCat;
+                if (!groupsMap.has(key)) groupsMap.set(key, []);
+                groupsMap.get(key).push(p);
+            });
+            const groupKeys = Array.from(groupsMap.keys()).sort((a, b) => a - b);
+
+            const TOTAL_BUDGET = 1400;
+            const GROUP_GAP = Math.min(80, TOTAL_BUDGET / (groupKeys.length * 4));
+            const perGroupBudget = (TOTAL_BUDGET - GROUP_GAP * (groupKeys.length - 1)) / groupKeys.length;
+            const groupDuration = Math.max(180, Math.min(500, perGroupBudget));
+
+            for (let gi = 0; gi < groupKeys.length; gi++) {
+                if (!isAlive()) break;
+                const group = groupsMap.get(groupKeys[gi]);
+                await animateGroupSimple(group, groupDuration, myEpoch);
+                group.forEach(p => { p.isRevealed = true; });
+                if (gi < groupKeys.length - 1) {
+                    await delay(GROUP_GAP);
+                }
+            }
+
+            if (!isAlive()) {
+                isSpeedrunning = false;
+                isFinaleRunning = false;
+                updateButtonStates();
+                return;
+            }
+
+            pathData.forEach(p => {
+                p.path.style.transition = 'none';
+                p.path.style.strokeDashoffset = '0';
+                p.path.style.opacity = String(BRIGHT_OPACITY);
+                p.path.style.strokeWidth = '2';
+                p.isRevealed = true;
+            });
+
+            currentStepIndex = combinationOrder.length - 1;
+            clearItemHighlights();
+
+            isSpeedrunning = false;
+            isFinaleRunning = false;
+            updateButtonStates();
+            updateHint();
+        }
+
+        function animateGroupSimple(group, duration, myEpoch) {
+            return new Promise(resolve => {
+                const startTime = performance.now();
+                const paths = group.map(p => ({ el: p.path, len: p.length }));
+
+                function frame(now) {
+                    if (myEpoch !== animationEpoch) { resolve(); return; }
+                    const t = Math.min(1, (now - startTime) / duration);
+                    const eased = 1 - Math.pow(1 - t, 3);
+                    for (let i = 0; i < paths.length; i++) {
+                        paths[i].el.style.strokeDashoffset = paths[i].len * (1 - eased);
+                    }
+                    if (t < 1) requestAnimationFrame(frame);
+                    else resolve();
+                }
+                requestAnimationFrame(frame);
+            });
+        }
+
+        function abortAnimations() {
+            animationEpoch++;
+            isFinaleRunning = false;
+        }
+
+        function resetAnimation() {
+            stopPlayback();
+            abortAnimations();
+
+            pathData.forEach(p => {
+                p.path.style.transition = 'none';
+                p.path.style.strokeDashoffset = p.length;
+                p.path.style.opacity = '0';
+                p.path.style.strokeWidth = '2';
+                p.isRevealed = false;
+            });
+
+            document.querySelectorAll('.comet-head, .comet-trail').forEach(el => el.remove());
+
+            currentStepIndex = -1;
+            clearItemHighlights();
+            updateButtonStates();
+            updateHint();
+        }
+
+        function stepForward() {
+            if (isPlaying || isRevealing || isFinaleRunning || isSpeedrunning) return;
+            if (currentStepIndex >= combinationOrder.length - 1) return;
+
+            isRevealing = true;
+            currentStepIndex++;
+            updateHint();
+            updateButtonStates();
+
+            const wasLast = currentStepIndex >= combinationOrder.length - 1;
+
+            revealCombination(currentStepIndex).then(async () => {
+                isRevealing = false;
+                updateButtonStates();
+                updateHint();
+                if (wasLast) {
+                    await delay(300);
+                    if (!isPlaying) runFinale();
+                }
+            });
+        }
+
+        async function playFromCurrent() {
+            if (isPlaying) { stopPlayback(); return; }
+            if (isRevealing || isFinaleRunning || isSpeedrunning) return;
+            if (combinationOrder.length === 0) return;
+
+            if (currentStepIndex >= combinationOrder.length - 1) {
+                resetAnimation();
+            }
+
+            isPlaying = true;
+            const myToken = ++playbackToken;
+            updateButtonStates();
+
+            const linger = getLingerTime();
+
+            while (currentStepIndex < combinationOrder.length - 1 && isPlaying && myToken === playbackToken) {
+                currentStepIndex++;
+                updateHint();
+                await revealCombination(currentStepIndex, myToken);
+                if (myToken !== playbackToken || !isPlaying) return;
+                await delay(linger);
+            }
+
+            if (myToken === playbackToken) {
+                isPlaying = false;
+                updateButtonStates();
+                updateHint();
+                await delay(350);
+                if (myToken !== playbackToken) return;
+                await runFinale();
+            }
+        }
+
+        function playFromStart() {
+            stopPlayback();
+            resetAnimation();
+            setTimeout(() => { playFromCurrent(); }, 120);
+        }
+
+        function stopPlayback() {
+            if (isPlaying) {
+                isPlaying = false;
+                playbackToken++;
+            }
+            updateButtonStates();
+        }
+
+        function peekRevealed() {
+            if (isPlaying || isRevealing || isFinaleRunning || isSpeedrunning) return;
+            const revealedPaths = pathData.filter(p => p.isRevealed);
+            if (revealedPaths.length === 0) return;
+
+            const savedStates = [];
+            revealedPaths.forEach(p => {
+                savedStates.push({ path: p.path, opacity: p.path.style.opacity });
+                p.path.style.transition = 'opacity 0.3s ease';
+                p.path.style.opacity = String(BRIGHT_OPACITY);
+            });
+
+            setTimeout(() => {
+                savedStates.forEach(({ path, opacity }) => { path.style.opacity = opacity; });
+            }, 1500);
+        }
+
+        function updateButtonStates() {
+            const btnReset = document.getElementById('btn-reset');
+            const btnStep = document.getElementById('btn-step');
+            const btnPlay = document.getElementById('btn-play');
+            const btnRestart = document.getElementById('btn-restart');
+            const btnPeek = document.getElementById('btn-peek');
+            const btnSpeedrun = document.getElementById('btn-speedrun');
+            if (!btnReset) return;
+
+            const hasCombos = combinationOrder.length > 0;
+            const isAtEnd = currentStepIndex >= combinationOrder.length - 1;
+            const anyRevealed = pathData.some(p => p.isRevealed);
+            const busy = isRevealing && !isPlaying;
+            const finaleRunning = isFinaleRunning;
+
+            if (isPlaying) {
+                btnReset.disabled = false;
+                btnStep.disabled = true;
+                btnPlay.disabled = false;
+                btnPlay.classList.add('is-playing');
+                btnPlay.innerHTML = '⏸ Stop';
+                btnRestart.disabled = true;
+                btnPeek.disabled = true;
+                btnSpeedrun.disabled = true;
+                btnSpeedrun.classList.remove('is-running');
+            } else if (busy || finaleRunning || isSpeedrunning) {
+                btnReset.disabled = true;
+                btnStep.disabled = true;
+                btnPlay.disabled = true;
+                btnPlay.classList.remove('is-playing');
+                btnPlay.innerHTML = '▶ Play';
+                btnRestart.disabled = true;
+                btnPeek.disabled = true;
+                if (isSpeedrunning) {
+                    btnSpeedrun.disabled = true;
+                    btnSpeedrun.classList.add('is-running');
+                } else {
+                    btnSpeedrun.disabled = true;
+                    btnSpeedrun.classList.remove('is-running');
+                }
+            } else {
+                btnReset.disabled = !hasCombos || currentStepIndex === -1;
+                btnStep.disabled = !hasCombos || isAtEnd;
+                btnPlay.disabled = !hasCombos;
+                btnPlay.classList.remove('is-playing');
+                btnPlay.innerHTML = '▶ Play';
+                btnRestart.disabled = !hasCombos;
+                btnPeek.disabled = !anyRevealed;
+                btnSpeedrun.disabled = !hasCombos;
+                btnSpeedrun.classList.remove('is-running');
+            }
+        }
+
+        function updateHint() {
+            if (!hint) return;
+            if (combinationOrder.length === 0) {
+                hint.innerText = 'Add categories to see the network.';
+                return;
+            }
+            const total = combinationOrder.length;
+            if (isSpeedrunning) {
+                hint.innerText = `🚀 Speedrunning all ${total.toLocaleString()} combinations...`;
+                return;
+            }
+            if (isFinaleRunning) {
+                hint.innerText = `🎉 Grand finale! Animating all ${total.toLocaleString()} combinations at once...`;
+                return;
+            }
+            if (currentStepIndex === -1) {
+                hint.innerText = `Click ▶ Play or ⏭ Step to reveal the ${total.toLocaleString()} combination${total === 1 ? '' : 's'} one by one.`;
+            } else if (currentStepIndex >= total - 1 && !isRevealing) {
+                hint.innerText = `All ${total.toLocaleString()} combinations revealed. Click ↺ Reset to start over.`;
+            } else {
+                const currentCombo = combinationOrder[currentStepIndex];
+                const comboLabel = currentCombo.map(i => i + 1).join('-');
+                hint.innerText = `Showing combination ${comboLabel} (${currentStepIndex + 1} of ${total.toLocaleString()}).`;
+            }
+        }
+
+        function toggleFullscreen() {
+            const panel = document.getElementById('network-panel');
+            if (!document.fullscreenElement) {
+                if (panel.requestFullscreen) panel.requestFullscreen().catch(err => console.error(err));
+                else if (panel.webkitRequestFullscreen) panel.webkitRequestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        }
+
+        function rebuildNetworkPreservingState() {
+            const wrapper = document.querySelector('.network-wrapper');
+            if (!wrapper || pathData.length === 0) return;
+
+            const revealedSet = new Set();
+            pathData.forEach(p => {
+                if (p.isRevealed) revealedSet.add(`${p.comboIdx}-${p.segIdx}`);
+            });
+
+            const currentCombo = currentStepIndex >= 0 ? combinationOrder[currentStepIndex] : null;
+            const currentComboSegKeys = new Set();
+            if (currentCombo) {
+                comboSegments[currentStepIndex].forEach((s, si) => {
+                    currentComboSegKeys.add(`${currentStepIndex}-${si}`);
+                });
+            }
+
+            const svg = wrapper.querySelector('.network-svg');
+            if (svg) svg.remove();
+
+            pathData = [];
+            buildPaths(wrapper);
+
+            pathData.forEach(p => {
+                const key = `${p.comboIdx}-${p.segIdx}`;
+                if (revealedSet.has(key)) {
+                    p.isRevealed = true;
+                    p.path.style.transition = 'none';
+                    p.path.style.strokeDashoffset = '0';
+                    p.path.style.strokeWidth = '2';
+                    p.path.style.opacity = currentComboSegKeys.has(key)
+                        ? String(BRIGHT_OPACITY)
+                        : String(DIM_OPACITY);
+                }
+            });
+
+            if (currentCombo) highlightItems(currentCombo);
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            setTimeout(rebuildNetworkPreservingState, 150);
+        });
+
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(rebuildNetworkPreservingState, 250);
+        });
+
+        // --- COMBINATION TABLE (recursive order, one row per combination) ---
+        function generateCombinationsList() {
+            const result = [];
+            const counts = categories.map(c => c.count);
+            const indices = new Array(categories.length).fill(0);
+            function recurse(pos) {
+                if (pos === categories.length) {
+                    result.push([...indices]);
+                    return;
+                }
+                for (let i = 0; i < counts[pos]; i++) {
+                    indices[pos] = i;
+                    recurse(pos + 1);
+                }
+            }
+            recurse(0);
+            return result;
+        }
+
+        function renderCombinations() {
+            if (categories.length === 0) {
+                comboListContainer.innerHTML = '<p style="text-align:center; color:#999;">Add some categories to see combinations.</p>';
+                return;
+            }
+
+            const combinations = generateCombinationsList();
+            const total = combinations.length;
+
+            let warningHTML = '';
+            if (total > 1000) {
+                warningHTML = `<div class="soft-warning">⚠️ That's a lot of combinations! (${total.toLocaleString()})</div>`;
+            }
+
+            const renderCount = Math.min(total, MAX_TABLE_ROWS);
+
+            let html = warningHTML;
+            html += `<div class="combo-list-header">Showing all ${total.toLocaleString()} combinations</div>`;
+            html += `<div class="combo-table-wrap"><table class="combo-table">`;
+
+            // Header row: # + one column per category
+            html += `<thead><tr>`;
+            html += `<th class="col-num">#</th>`;
+            categories.forEach(cat => {
+                html += `<th style="border-bottom-color: ${cat.color};">${cat.emoji} ${cat.name}</th>`;
+            });
+            html += `</tr></thead><tbody>`;
+
+            for (let i = 0; i < renderCount; i++) {
+                const combo = combinations[i];
+                // Zebra: even index = strong tint + no bottom border (paired with the light row that follows)
+                //        odd index  = light tint + bottom border (closes the pair)
+                const isStrong = i % 2 === 0;
+                const tintAlpha = isStrong ? TINT_STRONG : TINT_LIGHT;
+                const borderColor = isStrong ? 'transparent' : ROW_DIVIDER;
+                const numBg = isStrong ? NUM_BG_STRONG : NUM_BG_LIGHT;
+
+                html += `<tr>`;
+                html += `<td class="col-num" style="--num-bg: ${numBg};">${i + 1}</td>`;
+                combo.forEach((itemIdx, catIdx) => {
+                    const cat = categories[catIdx];
+                    const tint = hexToRgba(cat.color, tintAlpha);
+                    const accent = hexToRgba(cat.color, 0.55);
+                    html += `<td style="--cell-tint: ${tint}; --cell-border: ${borderColor}; --cell-accent: ${accent};">${cat.emoji} ${cat.name} ${itemIdx + 1}</td>`;
+                });
+                html += `</tr>`;
+            }
+
+            html += `</tbody></table></div>`;
+
+            if (total > MAX_TABLE_ROWS) {
+                const hidden = total - MAX_TABLE_ROWS;
+                html += `<div class="combo-truncated">… and ${hidden.toLocaleString()} more combinations hidden (too many to display)</div>`;
+            }
+
+            comboListContainer.innerHTML = html;
+        }
+
+        render();
+    </script>
+</body>
+</html>
