@@ -418,14 +418,6 @@
         let viewportState = { x: 0, y: 0, scale: 1 };
         let isPanning = false;
         let panStart = { x: 0, y: 0, tx: 0, ty: 0 };
-        let hasAutoFit = false;
-
-        // --- PERSISTENT REVEAL STATE (survives rebuilds) ---
-        // Keys are "comboIdx-segIdx". This is the single source of truth for
-        // which paths should be visible, independent of pathData being rebuilt.
-        let revealedComboSegments = new Set();
-        // Token used to supersede stale async rebuilds
-        let rebuildToken = 0;
 
         const controlsContainer = document.getElementById('controls-container');
         const mathEquation = document.getElementById('math-equation');
@@ -440,6 +432,20 @@
         const progressLabel = document.getElementById('calc-progress-label');
         const progressFill = document.getElementById('calc-progress-fill');
         const progressCount = document.getElementById('calc-progress-count');
+
+        // --- CACHED DOM LOOKUPS ---
+        let cachedWrapper = null;
+        let cachedNetworkItemMap = new Map(); // "catIdx-itemIdx" -> element
+
+        function cacheNetworkDom() {
+            cachedWrapper = document.querySelector('.network-wrapper');
+            cachedNetworkItemMap.clear();
+            if (!cachedWrapper) return;
+            cachedWrapper.querySelectorAll('.network-item').forEach(el => {
+                const key = `${el.dataset.catIdx}-${el.dataset.itemIdx}`;
+                cachedNetworkItemMap.set(key, el);
+            });
+        }
 
         function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
         function yieldToBrowser() { return new Promise(resolve => setTimeout(resolve, 0)); }
@@ -503,7 +509,7 @@
         }
         function fitToViewport() {
             if (!viewportEl) return;
-            const wrapper = document.querySelector('.network-wrapper');
+            const wrapper = cachedWrapper || document.querySelector('.network-wrapper');
             if (!wrapper) return;
             if (stageEl) stageEl.style.transform = 'none';
             void wrapper.offsetWidth;
@@ -521,7 +527,6 @@
             viewportState.y = (vpH - cH * scale) / 2;
             applyStageTransform();
             updateZoomIndicator();
-            hasAutoFit = true;
         }
         function resetZoom() {
             viewportState.scale = 1;
@@ -650,8 +655,6 @@
             stopPlayback();
             abortAnimations();
             hasCalculated = false;
-            hasAutoFit = false;
-            revealedComboSegments.clear();
             renderControls();
             renderMath();
             renderNetwork();
@@ -739,6 +742,8 @@
 
             if (categories.length < 2) {
                 networkView.innerHTML = '<p style="text-align:center; color:#999; padding:20px;">Add at least two categories to see the network.</p>';
+                cachedWrapper = null;
+                cachedNetworkItemMap.clear();
                 updateHint();
                 return;
             }
@@ -767,6 +772,7 @@
             });
 
             networkView.appendChild(wrapper);
+            cacheNetworkDom();
 
             setTimeout(() => {
                 fitToViewport();
@@ -848,12 +854,57 @@
             });
         }
 
+        // Helper: compute path 'd' for one segment given item rects
+        function computeSegmentPathD(s, itemRects, maxSpread) {
+            const srcRect = itemRects[s.a][s.b];
+            const tgtRect = itemRects[s.c][s.d];
+            const sourceSpacing = s.sourceTotal > 1 ? maxSpread / (s.sourceTotal - 1) : 0;
+            const targetSpacing = s.targetTotal > 1 ? maxSpread / (s.targetTotal - 1) : 0;
+            const sourceOffset = (s.sourceSlot - (s.sourceTotal - 1) / 2) * sourceSpacing;
+            const targetOffset = (s.targetSlot - (s.targetTotal - 1) / 2) * targetSpacing;
+
+            const startX = srcRect.right;
+            const startY = srcRect.cy + sourceOffset;
+            const endX = tgtRect.left;
+            const endY = tgtRect.cy + targetOffset;
+            const dx = Math.max(40, (endX - startX) * 0.5);
+            const bendFactor = 0.55;
+            const ctrl1X = startX + dx, ctrl1Y = startY + sourceOffset * bendFactor;
+            const ctrl2X = endX - dx, ctrl2Y = endY + targetOffset * bendFactor;
+            return `M ${startX} ${startY} C ${ctrl1X} ${ctrl1Y}, ${ctrl2X} ${ctrl2Y}, ${endX} ${endY}`;
+        }
+
+        // Measure item rects (caller must have transform reset to 'none' synchronously before)
+        function measureItemRects(wrapper) {
+            const wrapperRect = wrapper.getBoundingClientRect();
+            const columns = wrapper.querySelectorAll('.network-column');
+            const itemRects = Array.from(columns).map(col =>
+                Array.from(col.querySelectorAll('.network-item')).map(item => {
+                    const r = item.getBoundingClientRect();
+                    return {
+                        right: r.right - wrapperRect.left,
+                        left: r.left - wrapperRect.left,
+                        cy: r.top + r.height / 2 - wrapperRect.top,
+                        height: r.height
+                    };
+                })
+            );
+            return itemRects;
+        }
+
         async function buildPathsChunked(wrapper) {
+            // Synchronous measurement: reset transform, measure, restore — all in one
+            // synchronous block so the browser never paints the reset state.
+            const savedTransform = stageEl ? stageEl.style.transform : '';
             if (stageEl) {
                 stageEl.style.transform = 'none';
                 void wrapper.offsetHeight;
             }
-            const wrapperRect = wrapper.getBoundingClientRect();
+            const itemRects = measureItemRects(wrapper);
+            if (stageEl) {
+                stageEl.style.transform = savedTransform;
+            }
+
             const svg = document.createElementNS(SVG_NS, 'svg');
             svg.classList.add('network-svg');
             const defs = document.createElementNS(SVG_NS, 'defs');
@@ -865,18 +916,7 @@
             svg.appendChild(defs);
             wrapper.insertBefore(svg, wrapper.firstChild);
 
-            const columns = wrapper.querySelectorAll('.network-column');
-            const columnItems = Array.from(columns).map(col => Array.from(col.querySelectorAll('.network-item')));
-            const itemRects = columnItems.map(items => items.map(item => {
-                const r = item.getBoundingClientRect();
-                return {
-                    right: r.right - wrapperRect.left,
-                    left: r.left - wrapperRect.left,
-                    cy: r.top + r.height / 2 - wrapperRect.top,
-                    height: r.height
-                };
-            }));
-
+            if (itemRects.length === 0 || itemRects[0].length === 0) return true;
             const maxSpread = itemRects[0][0].height * 0.75;
             pathData = [];
             const totalSegs = comboSegments.length;
@@ -888,22 +928,7 @@
                 const comboColor = getComboColor(ci);
                 for (let si = 0; si < segs.length; si++) {
                     const s = segs[si];
-                    const srcRect = itemRects[s.a][s.b];
-                    const tgtRect = itemRects[s.c][s.d];
-                    const sourceSpacing = s.sourceTotal > 1 ? maxSpread / (s.sourceTotal - 1) : 0;
-                    const targetSpacing = s.targetTotal > 1 ? maxSpread / (s.targetTotal - 1) : 0;
-                    const sourceOffset = (s.sourceSlot - (s.sourceTotal - 1) / 2) * sourceSpacing;
-                    const targetOffset = (s.targetSlot - (s.targetTotal - 1) / 2) * targetSpacing;
-
-                    const startX = srcRect.right;
-                    const startY = srcRect.cy + sourceOffset;
-                    const endX = tgtRect.left;
-                    const endY = tgtRect.cy + targetOffset;
-                    const dx = Math.max(40, (endX - startX) * 0.5);
-                    const bendFactor = 0.55;
-                    const ctrl1X = startX + dx, ctrl1Y = startY + sourceOffset * bendFactor;
-                    const ctrl2X = endX - dx, ctrl2Y = endY + targetOffset * bendFactor;
-                    const d = `M ${startX} ${startY} C ${ctrl1X} ${ctrl1Y}, ${ctrl2X} ${ctrl2Y}, ${endX} ${endY}`;
+                    const d = computeSegmentPathD(s, itemRects, maxSpread);
 
                     const path = document.createElementNS(SVG_NS, 'path');
                     path.setAttribute('d', d);
@@ -934,6 +959,47 @@
             }
             updateProgress('Building network paths...', totalSegs, totalSegs, 35, 70);
             return true;
+        }
+
+        // --- NEW: reposition existing paths in place (no DOM churn) ---
+        function repositionPaths() {
+            const wrapper = cachedWrapper || document.querySelector('.network-wrapper');
+            if (!wrapper || pathData.length === 0 || comboSegments.length === 0) return;
+
+            // Synchronous measurement with temporary transform reset
+            const savedTransform = stageEl ? stageEl.style.transform : '';
+            if (stageEl) {
+                stageEl.style.transform = 'none';
+                void wrapper.offsetHeight;
+            }
+            const itemRects = measureItemRects(wrapper);
+            if (stageEl) {
+                stageEl.style.transform = savedTransform;
+            }
+
+            if (itemRects.length === 0 || itemRects[0].length === 0) return;
+            const maxSpread = itemRects[0][0].height * 0.75;
+
+            let pathIdx = 0;
+            for (let ci = 0; ci < comboSegments.length; ci++) {
+                const segs = comboSegments[ci];
+                for (let si = 0; si < segs.length; si++) {
+                    const s = segs[si];
+                    const p = pathData[pathIdx];
+                    pathIdx++;
+                    if (!p || !p.path) continue;
+
+                    const d = computeSegmentPathD(s, itemRects, maxSpread);
+                    p.path.setAttribute('d', d);
+
+                    const newLength = p.path.getTotalLength();
+                    p.length = newLength;
+                    p.path.style.strokeDasharray = newLength;
+                    if (!p.isRevealed) {
+                        p.path.style.strokeDashoffset = newLength;
+                    }
+                }
+            }
         }
 
         async function renderResultsTableChunked() {
@@ -1006,7 +1072,6 @@
             hasCalculated = false;
             calculationCancelled = false;
             isCalculating = true;
-            revealedComboSegments.clear();
 
             if (viewportEl) viewportEl.classList.add('calculating');
             updateCalculateButton();
@@ -1027,7 +1092,7 @@
                 computeSegmentOffsets();
                 updateProgress('Computing offsets...', 1, 1, 30, 35);
 
-                const wrapper = document.querySelector('.network-wrapper');
+                const wrapper = cachedWrapper || document.querySelector('.network-wrapper');
                 if (wrapper) {
                     const oldSvg = wrapper.querySelector('.network-svg');
                     if (oldSvg) oldSvg.remove();
@@ -1057,7 +1122,7 @@
                 currentStepIndex = -1;
                 hasCalculated = false;
 
-                const wrapper = document.querySelector('.network-wrapper');
+                const wrapper = cachedWrapper || document.querySelector('.network-wrapper');
                 if (wrapper) {
                     const oldSvg = wrapper.querySelector('.network-svg');
                     if (oldSvg) oldSvg.remove();
@@ -1087,7 +1152,7 @@
         function highlightItems(combo) {
             document.querySelectorAll('.network-item.highlighted').forEach(el => el.classList.remove('highlighted'));
             combo.forEach((itemIdx, catIdx) => {
-                const el = document.querySelector(`.network-item[data-cat-idx="${catIdx}"][data-item-idx="${itemIdx}"]`);
+                const el = cachedNetworkItemMap.get(`${catIdx}-${itemIdx}`);
                 if (el) el.classList.add('highlighted');
             });
         }
@@ -1198,8 +1263,6 @@
                 if (!isTokenAlive()) return;
                 const p = pathData[segs[i].pathIdx];
                 p.isRevealed = true;
-                // Persist reveal state across rebuilds
-                revealedComboSegments.add(`${segs[i].comboIdx}-${segs[i].segIdx}`);
                 await animatePathDraw(p, duration);
                 if (i < segs.length - 1) {
                     if (!isTokenAlive()) return;
@@ -1222,7 +1285,6 @@
                 p.path.style.opacity = '1';
                 p.path.style.strokeWidth = '3';
                 p.isRevealed = true;
-                revealedComboSegments.add(`${p.comboIdx}-${p.segIdx}`);
             });
             const total = allPaths.length;
             const duration = total > 300 ? 350 : (total > 100 ? 420 : 500);
@@ -1236,7 +1298,6 @@
                 p.path.style.opacity = String(BRIGHT_OPACITY);
                 p.path.style.strokeWidth = '2';
                 p.isRevealed = true;
-                revealedComboSegments.add(`${p.comboIdx}-${p.segIdx}`);
             });
             clearItemHighlights();
             isFinaleRunning = false;
@@ -1280,10 +1341,7 @@
                 if (!isAlive()) break;
                 const group = groupsMap.get(groupKeys[gi]);
                 await animateGroupSimple(group, groupDuration, myEpoch);
-                group.forEach(p => {
-                    p.isRevealed = true;
-                    revealedComboSegments.add(`${p.comboIdx}-${p.segIdx}`);
-                });
+                group.forEach(p => { p.isRevealed = true; });
                 if (gi < groupKeys.length - 1) await delay(GROUP_GAP);
             }
             if (!isAlive()) { isSpeedrunning = false; isFinaleRunning = false; updateButtonStates(); return; }
@@ -1293,7 +1351,6 @@
                 p.path.style.opacity = String(BRIGHT_OPACITY);
                 p.path.style.strokeWidth = '2';
                 p.isRevealed = true;
-                revealedComboSegments.add(`${p.comboIdx}-${p.segIdx}`);
             });
             currentStepIndex = combinationOrder.length - 1;
             clearItemHighlights();
@@ -1333,7 +1390,6 @@
                 p.path.style.strokeWidth = '2';
                 p.isRevealed = false;
             });
-            revealedComboSegments.clear();
             document.querySelectorAll('.comet-head, .comet-trail').forEach(el => el.remove());
             currentStepIndex = -1;
             clearItemHighlights();
@@ -1428,6 +1484,9 @@
             }, 1500);
         }
 
+        // Cache last applied innerHTML for play button to avoid redundant DOM writes
+        let lastPlayBtnHTML = '';
+
         function updateButtonStates() {
             const btnReset = document.getElementById('btn-reset');
             const btnStep = document.getElementById('btn-step');
@@ -1445,12 +1504,14 @@
             const finaleRunning = isFinaleRunning;
             const calcBusy = isCalculating;
 
+            let playLabel = '▶ Play';
+            if (isPlaying) playLabel = '⏸ Stop';
+
             if (isPlaying) {
                 btnReset.disabled = false;
                 btnStep.disabled = true;
                 btnPlay.disabled = false;
                 btnPlay.classList.add('is-playing');
-                btnPlay.innerHTML = '⏸ Stop';
                 btnRestart.disabled = true;
                 btnPeek.disabled = true;
                 btnSpeedrun.disabled = true;
@@ -1460,7 +1521,6 @@
                 btnStep.disabled = true;
                 btnPlay.disabled = true;
                 btnPlay.classList.remove('is-playing');
-                btnPlay.innerHTML = '▶ Play';
                 btnRestart.disabled = true;
                 btnPeek.disabled = true;
                 if (isSpeedrunning) {
@@ -1475,11 +1535,15 @@
                 btnStep.disabled = !ready || isAtEnd;
                 btnPlay.disabled = !ready;
                 btnPlay.classList.remove('is-playing');
-                btnPlay.innerHTML = '▶ Play';
                 btnRestart.disabled = !ready;
                 btnPeek.disabled = !anyRevealed;
                 btnSpeedrun.disabled = !ready;
                 btnSpeedrun.classList.remove('is-running');
+            }
+
+            if (playLabel !== lastPlayBtnHTML) {
+                btnPlay.innerHTML = playLabel;
+                lastPlayBtnHTML = playLabel;
             }
         }
 
@@ -1520,68 +1584,22 @@
             }
         }
 
-        // --- REBUILD: uses persistent revealedComboSegments + token supersede ---
-        async function rebuildNetworkPreservingState() {
-            const wrapper = document.querySelector('.network-wrapper');
-            if (!wrapper) return;
-            if (comboSegments.length === 0) return;
-
-            // Grab a snapshot of what should be revealed from the persistent set
-            const revealedSnapshot = new Set(revealedComboSegments);
-
-            const currentCombo = currentStepIndex >= 0 ? combinationOrder[currentStepIndex] : null;
-            const currentComboSegKeys = new Set();
-            if (currentCombo && comboSegments[currentStepIndex]) {
-                comboSegments[currentStepIndex].forEach((s, si) => {
-                    currentComboSegKeys.add(`${currentStepIndex}-${si}`);
-                });
-            }
-
-            // Bump the token; any older in-flight rebuild will bail before applying its results
-            const myToken = ++rebuildToken;
-
-            const svg = wrapper.querySelector('.network-svg');
-            if (svg) svg.remove();
-
-            pathData = [];
-            const ok = await buildPathsChunked(wrapper);
-
-            // If a newer rebuild started, drop this result on the floor
-            if (myToken !== rebuildToken) return;
-            if (!ok) return;
-
-            pathData.forEach(p => {
-                const key = `${p.comboIdx}-${p.segIdx}`;
-                if (revealedSnapshot.has(key)) {
-                    p.isRevealed = true;
-                    p.path.style.transition = 'none';
-                    p.path.style.strokeDashoffset = '0';
-                    p.path.style.strokeWidth = '2';
-                    p.path.style.opacity = currentComboSegKeys.has(key)
-                        ? String(BRIGHT_OPACITY)
-                        : String(DIM_OPACITY);
+        // --- Debounced viewport-change handler (uses in-place repositioning) ---
+        let viewportDebounceTimer = null;
+        function scheduleViewportUpdate() {
+            // If mid-calculation, skip — the calculator will fitToViewport() at the end
+            if (isCalculating) return;
+            clearTimeout(viewportDebounceTimer);
+            viewportDebounceTimer = setTimeout(() => {
+                if (pathData.length > 0) {
+                    repositionPaths();
                 }
-            });
-
-            if (currentCombo) highlightItems(currentCombo);
-            fitToViewport();
+                fitToViewport();
+            }, 120);
         }
 
-        // Debounce fullscreen + resize into a single rebuild call
-        let rebuildDebounceTimer = null;
-        function scheduleRebuild() {
-            clearTimeout(rebuildDebounceTimer);
-            rebuildDebounceTimer = setTimeout(() => {
-                if (pathData.length > 0 || revealedComboSegments.size > 0) {
-                    rebuildNetworkPreservingState();
-                } else {
-                    fitToViewport();
-                }
-            }, 180);
-        }
-
-        document.addEventListener('fullscreenchange', scheduleRebuild);
-        window.addEventListener('resize', scheduleRebuild);
+        document.addEventListener('fullscreenchange', scheduleViewportUpdate);
+        window.addEventListener('resize', scheduleViewportUpdate);
 
         render();
     </script>
