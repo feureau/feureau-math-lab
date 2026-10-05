@@ -184,9 +184,10 @@
             text-align: center; white-space: nowrap; margin-bottom: 5px;
         }
         .network-item {
+            position: relative;
             background: #fff; border: 2px solid #3498db; border-radius: 8px;
             padding: 8px 14px; font-size: 0.9rem; font-weight: bold; color: #333;
-            text-align: center; min-width: 55px; transition: all 0.2s;
+            text-align: center; min-width: 55px; transition: box-shadow 0.15s, transform 0.15s;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             animation: itemFadeIn 0.4s ease both;
         }
@@ -199,6 +200,76 @@
             box-shadow: 0 0 0 5px rgba(241, 196, 15, 0.35);
             transform: scale(1.12);
         }
+        .network-item.wire-source {
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.55), 0 0 12px rgba(52, 152, 219, 0.4);
+            transform: scale(1.10);
+            z-index: 5;
+        }
+        .network-item.wire-hover-target {
+            box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.70), 0 0 12px rgba(46, 204, 113, 0.5);
+            transform: scale(1.10);
+            z-index: 5;
+        }
+
+        .wire-port {
+            position: absolute;
+            right: -11px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2.5px solid #3498db;
+            cursor: grab;
+            opacity: 0.55;
+            transition: opacity 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+            z-index: 10;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            pointer-events: auto;
+            box-shadow: 0 0 0 6px transparent;
+        }
+        .wire-port:active { cursor: grabbing; }
+        .network-viewport.calculated .wire-port { opacity: 0.95; }
+        .wire-port:hover {
+            opacity: 1;
+            background: #eaf4fd;
+            box-shadow: 0 0 0 6px rgba(52, 152, 219, 0.15), 0 0 12px rgba(52, 152, 219, 0.5);
+        }
+        .network-item.wire-source .wire-port {
+            background: #3498db;
+            opacity: 1;
+            box-shadow: 0 0 0 6px rgba(52, 152, 219, 0.25), 0 0 14px rgba(52, 152, 219, 0.85);
+        }
+        .wire-port::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #3498db;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        .network-item.wire-source .wire-port::before { background: #fff; }
+        .wire-port::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            border: 2px solid rgba(52, 152, 219, 0);
+            pointer-events: none;
+        }
+        .network-viewport.calculated .wire-port::after {
+            animation: wirePortPulse 2.4s ease-in-out infinite;
+        }
+        @keyframes wirePortPulse {
+            0%, 60%, 100% { border-color: rgba(52, 152, 219, 0); transform: scale(1); }
+            30% { border-color: rgba(52, 152, 219, 0.5); transform: scale(1.25); }
+        }
+
+        .wire-preview { pointer-events: none; }
         .network-svg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; z-index: 1; overflow: visible;
@@ -418,6 +489,21 @@
         let viewportState = { x: 0, y: 0, scale: 1 };
         let isPanning = false;
         let panStart = { x: 0, y: 0, tx: 0, ty: 0 };
+        let viewportUserModified = false;
+
+        // Tracks the last combo that arrived at each node, so a chain drag
+        // like Shirt2→Pants1 → Pants1→Shoes1 stays on the same combo.
+        // key: "catIdx-itemIdx", value: comboIdx
+        let revealedIncomingEndpoint = new Map();
+
+        let wireDrag = {
+            active: false,
+            sourceCatIdx: -1,
+            sourceItemIdx: -1,
+            previewPath: null,
+            hoverCatIdx: -1,
+            hoverItemIdx: -1
+        };
 
         const controlsContainer = document.getElementById('controls-container');
         const mathEquation = document.getElementById('math-equation');
@@ -433,9 +519,8 @@
         const progressFill = document.getElementById('calc-progress-fill');
         const progressCount = document.getElementById('calc-progress-count');
 
-        // --- CACHED DOM LOOKUPS ---
         let cachedWrapper = null;
-        let cachedNetworkItemMap = new Map(); // "catIdx-itemIdx" -> element
+        let cachedNetworkItemMap = new Map();
 
         function cacheNetworkDom() {
             cachedWrapper = document.querySelector('.network-wrapper');
@@ -527,6 +612,7 @@
             viewportState.y = (vpH - cH * scale) / 2;
             applyStageTransform();
             updateZoomIndicator();
+            viewportUserModified = false;
         }
         function resetZoom() {
             viewportState.scale = 1;
@@ -534,6 +620,7 @@
             viewportState.y = 0;
             applyStageTransform();
             updateZoomIndicator();
+            viewportUserModified = true;
         }
         function zoomBy(factor, cxOverride, cyOverride) {
             if (!viewportEl) return;
@@ -546,30 +633,331 @@
             viewportState.scale = newScale;
             applyStageTransform();
             updateZoomIndicator();
+            viewportUserModified = true;
+        }
+
+        // --- WIRE DRAG HELPERS ---
+        function screenToWrapper(clientX, clientY) {
+            const wrapper = cachedWrapper;
+            if (!wrapper) return null;
+            const wrapperRect = wrapper.getBoundingClientRect();
+            const scale = viewportState.scale || 1;
+            return {
+                x: (clientX - wrapperRect.left) / scale,
+                y: (clientY - wrapperRect.top) / scale
+            };
+        }
+
+        function getItemAnchor(catIdx, itemIdx, side) {
+            const el = cachedNetworkItemMap.get(`${catIdx}-${itemIdx}`);
+            if (!el) return null;
+            const wrapper = cachedWrapper;
+            if (!wrapper) return null;
+            const elRect = el.getBoundingClientRect();
+            const wrapperRect = wrapper.getBoundingClientRect();
+            const scale = viewportState.scale || 1;
+            return {
+                x: side === 'right'
+                    ? (elRect.right - wrapperRect.left) / scale
+                    : (elRect.left - wrapperRect.left) / scale,
+                y: (elRect.top + elRect.height / 2 - wrapperRect.top) / scale
+            };
+        }
+
+        function startWireDrag(catIdx, itemIdx) {
+            if (!hasCalculated) return false;
+            if (catIdx >= categories.length - 1) return false;
+            if (!pathData || pathData.length === 0) return false;
+
+            const svg = document.querySelector('.network-svg');
+            if (!svg) return false;
+
+            wireDrag.active = true;
+            wireDrag.sourceCatIdx = catIdx;
+            wireDrag.sourceItemIdx = itemIdx;
+
+            const preview = document.createElementNS(SVG_NS, 'path');
+            preview.setAttribute('fill', 'none');
+            preview.setAttribute('stroke', categories[catIdx].color);
+            preview.setAttribute('stroke-width', '2');
+            preview.setAttribute('stroke-dasharray', '8 5');
+            preview.setAttribute('stroke-linecap', 'round');
+            preview.setAttribute('opacity', '0.85');
+            preview.classList.add('wire-preview');
+            svg.appendChild(preview);
+            wireDrag.previewPath = preview;
+
+            const srcEl = cachedNetworkItemMap.get(`${catIdx}-${itemIdx}`);
+            if (srcEl) srcEl.classList.add('wire-source');
+            return true;
+        }
+
+        function updateWireDrag(clientX, clientY) {
+            if (!wireDrag.active || !wireDrag.previewPath) return;
+
+            const src = getItemAnchor(wireDrag.sourceCatIdx, wireDrag.sourceItemIdx, 'right');
+            if (!src) return;
+            const cursor = screenToWrapper(clientX, clientY);
+            if (!cursor) return;
+
+            const dx = Math.max(40, (cursor.x - src.x) * 0.5);
+            const d = `M ${src.x} ${src.y} C ${src.x + dx} ${src.y}, ${cursor.x - dx} ${cursor.y}, ${cursor.x} ${cursor.y}`;
+            wireDrag.previewPath.setAttribute('d', d);
+
+            const target = findWireTarget(clientX, clientY);
+            updateWireHover(target);
+        }
+
+        function findWireTarget(clientX, clientY) {
+            if (!wireDrag.active) return null;
+            const el = document.elementFromPoint(clientX, clientY);
+            if (!el) return null;
+            const itemEl = el.closest && el.closest('.network-item');
+            if (!itemEl) return null;
+
+            const catIdx = parseInt(itemEl.dataset.catIdx);
+            const itemIdx = parseInt(itemEl.dataset.itemIdx);
+
+            if (catIdx !== wireDrag.sourceCatIdx + 1) return null;
+
+            return { catIdx, itemIdx, el: itemEl };
+        }
+
+        function updateWireHover(target) {
+            if (wireDrag.hoverCatIdx >= 0) {
+                const prev = cachedNetworkItemMap.get(`${wireDrag.hoverCatIdx}-${wireDrag.hoverItemIdx}`);
+                if (prev) prev.classList.remove('wire-hover-target');
+            }
+
+            if (target) {
+                target.el.classList.add('wire-hover-target');
+                wireDrag.hoverCatIdx = target.catIdx;
+                wireDrag.hoverItemIdx = target.itemIdx;
+            } else {
+                wireDrag.hoverCatIdx = -1;
+                wireDrag.hoverItemIdx = -1;
+            }
+        }
+
+        function clearWireHighlights() {
+            document.querySelectorAll('.network-item.wire-source, .network-item.wire-hover-target')
+                .forEach(el => el.classList.remove('wire-source', 'wire-hover-target'));
+            wireDrag.hoverCatIdx = -1;
+            wireDrag.hoverItemIdx = -1;
+        }
+
+        function cancelWireDrag() {
+            if (wireDrag.previewPath) {
+                wireDrag.previewPath.remove();
+                wireDrag.previewPath = null;
+            }
+            clearWireHighlights();
+            wireDrag.active = false;
+            wireDrag.sourceCatIdx = -1;
+            wireDrag.sourceItemIdx = -1;
+        }
+
+        async function endWireDrag(clientX, clientY) {
+            if (!wireDrag.active) return;
+
+            const target = findWireTarget(clientX, clientY);
+            const srcCat = wireDrag.sourceCatIdx;
+            const srcItem = wireDrag.sourceItemIdx;
+
+            if (wireDrag.previewPath) {
+                wireDrag.previewPath.remove();
+                wireDrag.previewPath = null;
+            }
+            clearWireHighlights();
+            wireDrag.active = false;
+            wireDrag.sourceCatIdx = -1;
+            wireDrag.sourceItemIdx = -1;
+
+            if (!target) return;
+
+            await revealWireSegment(srcCat, srcItem, target.catIdx, target.itemIdx);
+        }
+
+        // Reveal a single segment for (fromCat,fromItem)→(toCat,toItem).
+        // Preference order:
+        //   1. If we know a combo that arrived at (fromCat,fromItem) from a previous drag,
+        //      continue that same combo (so chained drags keep a coherent color).
+        //   2. Otherwise, fall back to the first matching combo in enumeration order.
+        async function revealWireSegment(fromCat, fromItem, toCat, toItem) {
+            if (!hasCalculated || comboSegments.length === 0) return;
+
+            const srcKey = `${fromCat}-${fromItem}`;
+            const preferredComboIdx = revealedIncomingEndpoint.get(srcKey);
+            let match = null;
+
+            // 1. Try to continue the same combo
+            if (preferredComboIdx !== undefined && comboSegments[preferredComboIdx]) {
+                const segs = comboSegments[preferredComboIdx];
+                for (let si = 0; si < segs.length; si++) {
+                    const s = segs[si];
+                    if (s.a === fromCat && s.b === fromItem && s.c === toCat && s.d === toItem) {
+                        match = { comboIdx: preferredComboIdx, segIdx: si, pathIdx: s.pathIdx };
+                        break;
+                    }
+                }
+            }
+
+            // 2. Fallback: first matching combo
+            if (!match) {
+                for (let ci = 0; ci < comboSegments.length && !match; ci++) {
+                    const segs = comboSegments[ci];
+                    for (let si = 0; si < segs.length && !match; si++) {
+                        const s = segs[si];
+                        if (s.a === fromCat && s.b === fromItem && s.c === toCat && s.d === toItem) {
+                            match = { comboIdx: ci, segIdx: si, pathIdx: s.pathIdx };
+                        }
+                    }
+                }
+            }
+
+            if (!match) return;
+
+            // Remember that this combo is the one now "arriving" at (toCat, toItem),
+            // so the next drag out of that node continues it.
+            revealedIncomingEndpoint.set(`${toCat}-${toItem}`, match.comboIdx);
+
+            // Flash both nodes
+            const elA = cachedNetworkItemMap.get(`${fromCat}-${fromItem}`);
+            const elB = cachedNetworkItemMap.get(`${toCat}-${toItem}`);
+            if (elA) elA.classList.add('highlighted');
+            if (elB) elB.classList.add('highlighted');
+            setTimeout(() => {
+                if (elA) elA.classList.remove('highlighted');
+                if (elB) elB.classList.remove('highlighted');
+            }, 900);
+
+            const p = pathData[match.pathIdx];
+            if (!p) return;
+
+            // If this exact path is already visible, pulse it briefly instead of
+            // re-drawing it.
+            if (p.isRevealed) {
+                const prevWidth = p.path.style.strokeWidth || '2';
+                p.path.style.transition = 'stroke-width 0.2s ease';
+                p.path.style.strokeWidth = '4';
+                setTimeout(() => {
+                    p.path.style.strokeWidth = prevWidth;
+                }, 320);
+                return;
+            }
+
+            p.isRevealed = true;
+            await animatePathDraw(p, 450);
+        }
+
+        function attachPortHandlers(portEl, catIdx, itemIdx) {
+            const beginDrag = (clientX, clientY) => {
+                if (!startWireDrag(catIdx, itemIdx)) return false;
+                updateWireDrag(clientX, clientY);
+                return true;
+            };
+
+            portEl.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.stopPropagation();
+                e.preventDefault();
+
+                const startX = e.clientX;
+                const startY = e.clientY;
+
+                if (hasCalculated) {
+                    beginDrag(startX, startY);
+                    return;
+                }
+
+                let cancelled = false;
+                const cancelHandler = () => { cancelled = true; };
+                document.addEventListener('mouseup', cancelHandler, { once: true, capture: true });
+
+                hint.innerText = '🔬 Calculating combinations first — keep holding to drag...';
+                ensureCalculated().then(ok => {
+                    document.removeEventListener('mouseup', cancelHandler, { capture: true });
+                    if (cancelled || !ok) return;
+                    beginDrag(startX, startY);
+                });
+            });
+
+            portEl.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                e.stopPropagation();
+                e.preventDefault();
+
+                const startX = e.touches[0].clientX;
+                const startY = e.touches[0].clientY;
+
+                if (hasCalculated) {
+                    beginDrag(startX, startY);
+                    return;
+                }
+
+                let cancelled = false;
+                const cancelHandler = () => { cancelled = true; };
+                document.addEventListener('touchend', cancelHandler, { once: true, capture: true });
+
+                hint.innerText = '🔬 Calculating combinations first — keep holding to drag...';
+                ensureCalculated().then(ok => {
+                    document.removeEventListener('touchend', cancelHandler, { capture: true });
+                    if (cancelled || !ok) return;
+                    beginDrag(startX, startY);
+                });
+            }, { passive: false });
         }
 
         (function setupPanZoom() {
             if (!viewportEl) return;
+
             viewportEl.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
                 if (e.target.closest('button')) return;
+                if (e.target.closest && e.target.closest('.wire-port')) return;
+
+                const itemEl = e.target.closest && e.target.closest('.network-item');
+                if (itemEl && hasCalculated) {
+                    const catIdx = parseInt(itemEl.dataset.catIdx);
+                    const itemIdx = parseInt(itemEl.dataset.itemIdx);
+                    if (catIdx < categories.length - 1) {
+                        if (startWireDrag(catIdx, itemIdx)) {
+                            updateWireDrag(e.clientX, e.clientY);
+                            e.preventDefault();
+                            return;
+                        }
+                    }
+                }
+
                 isPanning = true;
                 panStart = { x: e.clientX, y: e.clientY, tx: viewportState.x, ty: viewportState.y };
                 viewportEl.classList.add('dragging');
                 e.preventDefault();
             });
+
             window.addEventListener('mousemove', (e) => {
+                if (wireDrag.active) {
+                    updateWireDrag(e.clientX, e.clientY);
+                    return;
+                }
                 if (!isPanning) return;
                 viewportState.x = panStart.tx + (e.clientX - panStart.x);
                 viewportState.y = panStart.ty + (e.clientY - panStart.y);
                 applyStageTransform();
+                viewportUserModified = true;
             });
-            window.addEventListener('mouseup', () => {
+
+            window.addEventListener('mouseup', (e) => {
+                if (wireDrag.active) {
+                    endWireDrag(e.clientX, e.clientY);
+                    return;
+                }
                 if (isPanning) {
                     isPanning = false;
                     viewportEl.classList.remove('dragging');
                 }
             });
+
             viewportEl.addEventListener('wheel', (e) => {
                 e.preventDefault();
                 const rect = viewportEl.getBoundingClientRect();
@@ -578,33 +966,68 @@
                 const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
                 zoomBy(factor, cx, cy);
             }, { passive: false });
+
             viewportEl.addEventListener('dblclick', (e) => {
                 if (e.target.closest('button')) return;
+                if (e.target.closest('.network-item')) return;
+                if (e.target.closest('.wire-port')) return;
                 e.preventDefault();
                 fitToViewport();
             });
 
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && wireDrag.active) {
+                    cancelWireDrag();
+                }
+            });
+
             let lastDist = 0;
             let touchStart = null;
+            let touchWireDrag = false;
+
             viewportEl.addEventListener('touchstart', (e) => {
                 if (e.touches.length === 1) {
+                    const target = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+                    if (target && target.closest && target.closest('.wire-port')) return;
+
+                    const itemEl = target && target.closest && target.closest('.network-item');
+                    if (itemEl && hasCalculated) {
+                        const catIdx = parseInt(itemEl.dataset.catIdx);
+                        const itemIdx = parseInt(itemEl.dataset.itemIdx);
+                        if (catIdx < categories.length - 1) {
+                            if (startWireDrag(catIdx, itemIdx)) {
+                                updateWireDrag(e.touches[0].clientX, e.touches[0].clientY);
+                                touchWireDrag = true;
+                                e.preventDefault();
+                                return;
+                            }
+                        }
+                    }
+                    touchWireDrag = false;
                     touchStart = {
                         x: e.touches[0].clientX, y: e.touches[0].clientY,
                         tx: viewportState.x, ty: viewportState.y
                     };
                 } else if (e.touches.length === 2) {
+                    touchWireDrag = false;
                     lastDist = Math.hypot(
                         e.touches[0].clientX - e.touches[1].clientX,
                         e.touches[0].clientY - e.touches[1].clientY
                     );
                 }
-            }, { passive: true });
+            }, { passive: false });
+
             viewportEl.addEventListener('touchmove', (e) => {
                 e.preventDefault();
+                if (touchWireDrag && e.touches.length === 1) {
+                    updateWireDrag(e.touches[0].clientX, e.touches[0].clientY);
+                    return;
+                }
                 if (e.touches.length === 1 && touchStart) {
                     viewportState.x = touchStart.tx + (e.touches[0].clientX - touchStart.x);
                     viewportState.y = touchStart.ty + (e.touches[0].clientY - touchStart.y);
                     applyStageTransform();
+                    viewportUserModified = true;
                 } else if (e.touches.length === 2) {
                     const dist = Math.hypot(
                         e.touches[0].clientX - e.touches[1].clientX,
@@ -620,7 +1043,14 @@
                     lastDist = dist;
                 }
             }, { passive: false });
-            viewportEl.addEventListener('touchend', () => {
+
+            viewportEl.addEventListener('touchend', (e) => {
+                if (touchWireDrag) {
+                    const t = e.changedTouches[0];
+                    endWireDrag(t.clientX, t.clientY);
+                    touchWireDrag = false;
+                    return;
+                }
                 touchStart = null;
                 lastDist = 0;
             });
@@ -653,8 +1083,12 @@
 
         function render() {
             stopPlayback();
+            cancelWireDrag();
             abortAnimations();
             hasCalculated = false;
+            viewportUserModified = false;
+            revealedIncomingEndpoint.clear();
+            if (viewportEl) viewportEl.classList.remove('calculated');
             renderControls();
             renderMath();
             renderNetwork();
@@ -750,6 +1184,7 @@
 
             const wrapper = document.createElement('div');
             wrapper.className = 'network-wrapper';
+            const lastCatIdx = categories.length - 1;
 
             categories.forEach((cat, catIdx) => {
                 const col = document.createElement('div');
@@ -766,6 +1201,18 @@
                     item.dataset.catIdx = catIdx;
                     item.dataset.itemIdx = i;
                     item.innerHTML = `${cat.emoji} ${i + 1}`;
+
+                    if (catIdx < lastCatIdx) {
+                        const port = document.createElement('div');
+                        port.className = 'wire-port';
+                        port.style.borderColor = cat.color;
+                        port.setAttribute('title', 'Drag from here to a node in the next column');
+                        port.dataset.catIdx = catIdx;
+                        port.dataset.itemIdx = i;
+                        attachPortHandlers(port, catIdx, i);
+                        item.appendChild(port);
+                    }
+
                     col.appendChild(item);
                 }
                 wrapper.appendChild(col);
@@ -854,7 +1301,6 @@
             });
         }
 
-        // Helper: compute path 'd' for one segment given item rects
         function computeSegmentPathD(s, itemRects, maxSpread) {
             const srcRect = itemRects[s.a][s.b];
             const tgtRect = itemRects[s.c][s.d];
@@ -874,7 +1320,6 @@
             return `M ${startX} ${startY} C ${ctrl1X} ${ctrl1Y}, ${ctrl2X} ${ctrl2Y}, ${endX} ${endY}`;
         }
 
-        // Measure item rects (caller must have transform reset to 'none' synchronously before)
         function measureItemRects(wrapper) {
             const wrapperRect = wrapper.getBoundingClientRect();
             const columns = wrapper.querySelectorAll('.network-column');
@@ -893,8 +1338,6 @@
         }
 
         async function buildPathsChunked(wrapper) {
-            // Synchronous measurement: reset transform, measure, restore — all in one
-            // synchronous block so the browser never paints the reset state.
             const savedTransform = stageEl ? stageEl.style.transform : '';
             if (stageEl) {
                 stageEl.style.transform = 'none';
@@ -961,12 +1404,10 @@
             return true;
         }
 
-        // --- NEW: reposition existing paths in place (no DOM churn) ---
         function repositionPaths() {
             const wrapper = cachedWrapper || document.querySelector('.network-wrapper');
             if (!wrapper || pathData.length === 0 || comboSegments.length === 0) return;
 
-            // Synchronous measurement with temporary transform reset
             const savedTransform = stageEl ? stageEl.style.transform : '';
             if (stageEl) {
                 stageEl.style.transform = 'none';
@@ -1062,6 +1503,7 @@
             if (categories.length < 2) return false;
 
             stopPlayback();
+            cancelWireDrag();
             abortAnimations();
             clearItemHighlights();
 
@@ -1072,6 +1514,8 @@
             hasCalculated = false;
             calculationCancelled = false;
             isCalculating = true;
+            revealedIncomingEndpoint.clear();
+            if (viewportEl) viewportEl.classList.remove('calculated');
 
             if (viewportEl) viewportEl.classList.add('calculating');
             updateCalculateButton();
@@ -1107,8 +1551,13 @@
                 hideProgressUI();
                 isCalculating = false;
                 if (viewportEl) viewportEl.classList.remove('calculating');
+                if (viewportEl) viewportEl.classList.add('calculated');
 
-                fitToViewport();
+                if (!viewportUserModified) {
+                    fitToViewport();
+                } else {
+                    updateZoomIndicator();
+                }
 
                 updateCalculateButton();
                 updateButtonStates();
@@ -1130,6 +1579,7 @@
                 hideProgressUI();
                 isCalculating = false;
                 if (viewportEl) viewportEl.classList.remove('calculating');
+                if (viewportEl) viewportEl.classList.remove('calculated');
 
                 renderResultsPlaceholder();
                 updateCalculateButton();
@@ -1311,6 +1761,7 @@
             if (pathData.length === 0) return;
 
             stopPlayback();
+            cancelWireDrag();
             abortAnimations();
             if (isRevealing || isFinaleRunning || isSpeedrunning) await delay(60);
             isSpeedrunning = true;
@@ -1382,6 +1833,7 @@
 
         function resetAnimation() {
             stopPlayback();
+            cancelWireDrag();
             abortAnimations();
             pathData.forEach(p => {
                 p.path.style.transition = 'none';
@@ -1390,6 +1842,7 @@
                 p.path.style.strokeWidth = '2';
                 p.isRevealed = false;
             });
+            revealedIncomingEndpoint.clear();
             document.querySelectorAll('.comet-head, .comet-trail').forEach(el => el.remove());
             currentStepIndex = -1;
             clearItemHighlights();
@@ -1484,7 +1937,6 @@
             }, 1500);
         }
 
-        // Cache last applied innerHTML for play button to avoid redundant DOM writes
         let lastPlayBtnHTML = '';
 
         function updateButtonStates() {
@@ -1563,7 +2015,7 @@
             if (isSpeedrunning) { hint.innerText = `🚀 Speedrunning all ${total.toLocaleString()} combinations...`; return; }
             if (isFinaleRunning) { hint.innerText = `🎉 Grand finale! Animating all ${total.toLocaleString()} combinations at once...`; return; }
             if (currentStepIndex === -1) {
-                hint.innerText = `Click ▶ Play or ⏭ Step to reveal the ${total.toLocaleString()} combination${total === 1 ? '' : 's'} one by one.`;
+                hint.innerText = `Click ▶ Play or ⏭ Step to reveal the ${total.toLocaleString()} combination${total === 1 ? '' : 's'} one by one. Drag the small circle on any node to wire it up manually.`;
             } else if (currentStepIndex >= total - 1 && !isRevealing) {
                 hint.innerText = `All ${total.toLocaleString()} combinations revealed. Click ↺ Reset to start over.`;
             } else {
@@ -1584,17 +2036,17 @@
             }
         }
 
-        // --- Debounced viewport-change handler (uses in-place repositioning) ---
         let viewportDebounceTimer = null;
         function scheduleViewportUpdate() {
-            // If mid-calculation, skip — the calculator will fitToViewport() at the end
             if (isCalculating) return;
             clearTimeout(viewportDebounceTimer);
             viewportDebounceTimer = setTimeout(() => {
                 if (pathData.length > 0) {
                     repositionPaths();
                 }
-                fitToViewport();
+                if (!viewportUserModified && pathData.length > 0) {
+                    fitToViewport();
+                }
             }, 120);
         }
 
